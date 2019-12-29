@@ -14,7 +14,7 @@ class WormWorldEnv(gym.Env):
     # https://stackoverflow.com/questions/44404281/openai-gym-understanding-action-space-notation-spaces-box
     ACTION = ['forward','backward','left','right']
 
-    def __init__(self, world_file=None, world_size=(512,512), mode=None, enable_render=False):
+    def __init__(self, world_file=None, world_size=(512,512), world_view_size=None, enable_render=False):
 
         self.viewer = None
         self.enable_render = enable_render
@@ -45,24 +45,24 @@ class WormWorldEnv(gym.Env):
         self.configure()
 
         if self.enable_render:
-            self.viewer = WorldView2D(world_size=world_size)
+            self.viewer = WorldView2D(world_size=world_size,world_view_size=world_view_size)
+
+    def configure(self):
+        pass
 
     def __del__(self):
         if self.enable_render is True:
             self.viewer.quit_game()
 
-    def configure(self, display=None):
-        self.display = display
-
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
+    # def seed(self, seed=None):
+    #     self.np_random, seed = seeding.np_random(seed)
+    #     return [seed]
 
     def step(self, action):
-        if isinstance(action, int):
-            newstate = self.__world.agent_action(self.ACTION[action])
-        else:
+        if isinstance(action, str):
             newstate = self.__world.agent_action(action)
+        else:
+            newstate = self.__world.agent_action(self.ACTION[action])
 
         self.__world.step()
         if self.enable_render:
@@ -86,6 +86,12 @@ class WormWorldEnv(gym.Env):
 
         return self.state, reward, done, info
 
+    def add_odor_sources(self,source):
+        pass
+
+    def add_temp(self,temp):
+        pass
+
     def update_odor_history(self,newstate):
         self.odor_history[1:] = self.odor_history[:-1]
         self.odor_history[0] = newstate[0]
@@ -103,12 +109,6 @@ class WormWorldEnv(gym.Env):
     def is_game_over(self):
         # return self.maze_view.game_over
         return self.game_over
-
-    def render(self, mode="human", close=False):
-        if close:
-            self.viewer.quit_game()
-
-        return self.viewer.update(mode)
 
 
 class World:
@@ -160,8 +160,12 @@ class World:
             self.agent = Agent(location=location)
 
     def agent_action(self,action=None):
-        if action == 'forward':
-            # print('move forward!')
+        if action == 'left':
+            self.agent.rotate(np.pi/2)
+        elif action == 'right':
+            self.agent.rotate(-np.pi/2)
+
+        if action == 'forward' or action == 'left' or action == 'right':
             self.agent.move(forward_backward=1)
             # check for edge effects
             location = self.agent.get_location()
@@ -187,13 +191,6 @@ class World:
             if location[1] < 0:
                 location[1] = self.world_size[1]-1
             self.agent.set_location(location)
-
-        elif action == 'left':
-            self.agent.rotate(np.pi/2)
-        elif action == 'right':
-            self.agent.rotate(-np.pi/2)
-        elif action == 'stay':
-            pass
 
         state = []
         for odor in self.odor_sources:
@@ -336,7 +333,7 @@ class OdorPlume:
 
         
     def get_odor_value(self,x,y):
-        return self.odor[x,y]
+        return self.odor[int(x),int(y)]
 
     def get_full_odor(self):
         return self.odor
@@ -348,6 +345,8 @@ class OdorPlume:
         return self.plume_id
 
     def consume_plume(self,x,y,pct=1):
+        x = int(x)
+        y = int(y)
         consume = (1-pct)*self.odor[x,y]
         self.odor[x,y] = consume
 
@@ -358,7 +357,7 @@ class OdorPlume:
             if (x,y) not in self.source_pos:
                 return 0
             else:
-                plume_number = [i for i,val in enumerate(list(range(self.source_pos))) if val = (x,y)][0]
+                plume_number = [i for i,val in enumerate(list(range(self.source_pos))) if val == (x,y)][0]
 
         amt_decay = max(self.emit_rate[plume_number]-decay_amount,0)
         self.emit_rate[plume_number] = amt_decay

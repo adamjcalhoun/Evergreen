@@ -118,7 +118,8 @@ class WormAgent:
 
 
 if __name__ == "__main__":
-    env = WormWorldEnv(enable_render=True,world_size=(32,32))
+    env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
+
     # nextaction = 'forward'
     # for n in range(1000):
     #     state, reward, done, info = env.step(action=nextaction)
