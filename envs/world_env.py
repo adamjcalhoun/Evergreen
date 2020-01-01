@@ -18,6 +18,7 @@ class WormWorldEnv(gym.Env):
 
         self.viewer = None
         self.enable_render = enable_render
+        self.__vis_layers = []
         self.game_over = False
         self.position = None
         self.hunger = 0
@@ -66,7 +67,9 @@ class WormWorldEnv(gym.Env):
 
         self.__world.step()
         if self.enable_render:
-            self.viewer.view_update(agent=self.__world.get_agent_location(),viewlayers=self.__world.get_odor_values(pid=0))
+            viewlayers = [self.__world.get_env_values(layer_type=layer[0],pid=layer[1]) for layer in self.__vis_layers]
+
+            self.viewer.view_update(agent=self.__world.get_agent_location(),viewlayers=viewlayers)
 
         self.update_odor_history(newstate)
 
@@ -86,11 +89,17 @@ class WormWorldEnv(gym.Env):
 
         return self.state, reward, done, info
 
-    def add_odor_sources(self,source):
-        pass
+    def add_odor_source(self,source_pos=(0,0),death_rate=0,diffusion_scale=0,emit_rate=0,plume_id=None):
+        return self.__world.add_odor_source(source_pos=source_pos,death_rate=death_rate,diffusion_scale=diffusion_scale,emit_rate=emit_rate,plume_id=plume_id)
 
-    def add_temp(self,temp):
-        pass
+    def add_circular_odor_source(self,source_pos=(0,0),plume_id=0,radius=0,emit_rate=0):
+        self.__world.add_circular_odor_source(source_pos=source_pos,plume_id=plume_id,radius=radius,emit_rate=emit_rate)
+
+    def add_square_odor_source(self,plume_id=0,source_topleft=None,source_bottomright=None,emit_rate=0):
+        self.__world.add_square_odor_source(plume_id=plume_id,source_topleft=source_topleft,source_bottomright=source_bottomright,emit_rate=emit_rate)
+
+    def add_temp_gradient(self,temp_id=None,source_pos=(0,0),fix_x=None,fix_y=None,tau=1,peak=25,trough=18):
+        return self.__world.add_temp_gradient(temp_id=temp_id,source_pos=source_pos,fix_x=fix_x,fix_y=fix_y,tau=tau,peak=peak,trough=trough)
 
     def update_odor_history(self,newstate):
         self.odor_history[1:] = self.odor_history[:-1]
@@ -110,6 +119,10 @@ class WormWorldEnv(gym.Env):
         # return self.maze_view.game_over
         return self.game_over
 
+    def add_vis_layer(self,layer_type='none',pid=-1):
+        if layer_type == 'odor' or layer_type == 'temp':
+            self.__vis_layers.append((layer_type,pid))
+
 
 class World:
 
@@ -120,11 +133,13 @@ class World:
         "W": (-1, 0)
     }
 
-    def __init__(self, world_cells=None, world_size=(512,512), num_odor_sources=(1)):
+    def __init__(self, world_cells=None, world_size=(512,512), num_odor_sources=0):
 
         # maze member variables
         self.world_size = world_size
         self.odor_sources = []
+        self.odor_type = []
+        self.temp_layers = []
         self.agent = None
 
 
@@ -153,7 +168,45 @@ class World:
             plume.step()
 
             self.odor_sources.append(plume)
-        
+
+    def add_odor_source(self,source_pos=(0,0),death_rate=0,diffusion_scale=0,emit_rate=0,plume_id=None):
+        if plume_id is None:
+            plume_id = len(self.odor_sources)
+            plume = OdorPlume(world_size=self.world_size,plume_id=plume_id,death_rate=death_rate,diffusion_scale=diffusion_scale)
+            self.odor_type.append('none')
+            self.odor_sources.append(plume)
+        else:
+            plume = self.odor_sources[plume_id]
+
+        plume.add_source(source_pos=source_pos,emit_rate=emit_rate)
+
+        return plume_id
+
+    def add_circular_odor_source(self,source_pos=(0,0),plume_id=0,radius=0,emit_rate=0):
+        plume = self.odor_sources[plume_id]
+        return plume.add_circular_source(source_pos=source_pos,radius=radius,emit_rate=emit_rate)
+
+    def add_square_odor_source(self,plume_id=0,source_topleft=None,source_bottomright=None,emit_rate=0):
+        plume = self.odor_sources[plume_id]
+        return plume.add_square_source(source_topleft=source_topleft,source_bottomright=source_bottomright,emit_rate=emit_rate)
+
+    def set_odor_source_type(self,sourcetype='none',pid=0):
+        self.odor_type[pid] = sourcetype
+
+    def get_odor_source_type(self,pid):
+        return self.odor_type[pid]
+
+    def add_temp_gradient(self,temp_id=None,source_pos=(0,0),fix_x=None,fix_y=None,tau=1,peak=25,trough=18):
+        if temp_id is None:
+            temp_id = len(self.temp_layers)
+            temp = TemperatureGradient(world_size=self.world_size)
+            self.temp_layers.append(temp)
+        else:
+            temp = self.temp_layers[temp_id]
+
+        temp.make_gaussian_peak(source_pos=source_pos,fix_x=fix_x,fix_y=fix_y,tau=tau,peak=peak,trough=trough)
+
+        return temp_id
 
     def add_agent(self,location=None):
         if self.agent is None:
@@ -196,6 +249,9 @@ class World:
         for odor in self.odor_sources:
             (x,y) = self.agent.get_location()
             state.append(odor.get_odor_value(x,y))
+            # if odor.get_odor_type() == 'food':
+            #   state.append(odor.get_odor_emit(x,y))
+            #   odor.decay_plume(x,y)
             odor.consume_plume(x,y)
 
         return state
@@ -214,6 +270,18 @@ class World:
             return self.odor_sources[pid].get_full_odor()
         else:
             return [odor.get_full_odor() for odor in self.odor_sources]
+
+    def get_temp_values(self,pid=None):
+        if pid is not None:
+            return self.temp_layers[pid].get_full_temp()
+        else:
+            return [odor.get_full_temp() for temp in self.temp_layers]
+
+    def get_env_values(self,layer_type='none',pid=None):
+        if layer_type == 'odor':
+            return self.get_odor_values(pid=pid)
+        elif layer_type == 'temp':
+            return self.get_temp_values(pid=pid)
 
     def step(self):
         for odor in self.odor_sources:
@@ -259,7 +327,7 @@ class Agent:
 
 class OdorPlume:
 
-    def __init__(self, world_size=(512,512), plume_id=None, death_rate=0.001, 
+    def __init__(self, world_size=(512,512), plume_id=None, death_rate=0.001, decay_rate=0,
                 diffusion_scale=1, min_concentration=0.00001, source_consumable=False):
 
         self.plume_id = plume_id
@@ -268,6 +336,7 @@ class OdorPlume:
         self.world_size = world_size
 
         self.death_rate = death_rate
+        self.decay_rate = []
         self.diffusion_scale = diffusion_scale
 
         self.min_concentration = min_concentration
@@ -284,8 +353,8 @@ class OdorPlume:
         self.num_sources += 1
 
     def add_circular_source(self,source_pos=None,radius=None,emit_rate=None):
-        x = np.arange(0,self.__world_size[0])
-        y = np.arange(0,self.__world_size[1])
+        x = np.arange(0,self.world_size[0])
+        y = np.arange(0,self.world_size[1])
         xx,yy = np.meshgrid(x,y)
         circle = np.sqrt((xx - source_pos[0])**2 + (yy - source_pos[1])**2) < radius
 
@@ -298,8 +367,8 @@ class OdorPlume:
         self.num_sources += np.sum(circle)
 
     def add_square_source(self,source_topleft=None,source_bottomright=None,emit_rate=None):
-        square = np.zeros((self.__world_size))
-        square[source_topleft[0]:source_bottomright[0],source_topleft[1]:source_bottomright[1]]
+        square = np.zeros((self.world_size))
+        square[source_topleft[0]:source_bottomright[0],source_topleft[1]:source_bottomright[1]] = 1
 
         inds = np.where(square == 1)
 
@@ -307,7 +376,7 @@ class OdorPlume:
             self.source_pos.append((int(vv),int(ww)))
             self.emit_rate.append(emit_rate)
 
-        self.num_sources += 1
+            self.num_sources += 1
 
     def step(self):
         world_diffusion = np.random.random([self.world_size[0],self.world_size[1],4])
@@ -334,6 +403,10 @@ class OdorPlume:
         
     def get_odor_value(self,x,y):
         return self.odor[int(x),int(y)]
+
+    def get_odor_emit(self,x,y):
+        plume_number = [i for i,val in enumerate(list(range(self.source_pos))) if val == (x,y)][0]
+        return self.emit_rate[plume_number]
 
     def get_full_odor(self):
         return self.odor
@@ -389,13 +462,13 @@ class TemperatureGradient:
             x = np.arange(0,self.__world_size[0])
             
         if fix_y is not None:
-            y = np.arange(0,self.__world_size[0])
-        else:
             y = np.ones(self.__world_size[1])*fix_y
+        else:
+            y = np.arange(0,self.__world_size[0])
             
 
         xx,yy = np.meshgrid(x,y)
-        self.temp = np.exp(-((xx - source_pos[0])**2 + (yy - source_pos[1])**2) / tau) * (peak-trough) + trough
+        self.__temp = np.exp(-((xx - source_pos[0])**2 + (yy - source_pos[1])**2) / tau) * (peak-trough) + trough
 
     def set_gradient(self,gradient=None):
         self.__temp = gradient

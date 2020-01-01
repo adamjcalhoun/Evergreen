@@ -56,8 +56,6 @@ class WormAgent:
         loss = 0
         minibatch = random.sample(self.memory, batch_size)
 
-        # with tf.device('/cpu:0'):
-
         for state, action, reward, next_state, done in minibatch:
             # t = time()
             target = reward
@@ -78,39 +76,6 @@ class WormAgent:
             # print(history.history['loss'])
             loss += history.history['loss'][-1]
 
-            # print('iteration time: ' + str(time() - t))
-
-        # t = time()
-        # states = None
-        # targets = None
-        # for state, action, reward, next_state, done in minibatch:
-        #     # t = time()
-        #     target = reward
-        #     # print('training')
-        #     # print(state)
-        #     # print(np.array(next_state).shape)
-        #     # print(self.model.predict(np.expand_dims(next_state,axis=0)))
-        #     if not done:
-        #         target = reward + self.gamma * np.amax(self.model.predict(np.expand_dims(next_state,axis=0))[0])
-        #     # print('target time: ' + str(time() - t))
-
-
-        #     target_f = self.model.predict(np.expand_dims(state,axis=0))
-        #     target_f[0][action] = target
-        #     # print('target_f time: ' + str(time() - t))
-        #     if targets is not None:
-        #         targets = np.append(targets,target_f,axis=0)
-        #         states = np.append(states,np.expand_dims(state,axis=0),axis=0)
-        #     else:
-        #         # print(target_f)
-        #         # print(target_f.shape)
-        #         targets = target_f
-        #         states = np.expand_dims(state,axis=0)
-
-        # history = self.model.fit(np.expand_dims(state,axis=0), target_f, epochs=1, verbose=0)
-        # loss = history.history['loss'][-1]
-
-        # print('iteration time: ' + str(time() - t))
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
 
@@ -119,6 +84,15 @@ class WormAgent:
 
 if __name__ == "__main__":
     env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
+    pid = env.add_odor_source(source_pos=(14,14),death_rate=0.01,diffusion_scale=2,emit_rate=0)
+    # pid = env.add_odor_source(source_pos=(20,18),death_rate=0.01,diffusion_scale=1,emit_rate=1,plume_id=pid)
+    # pid = env.add_circular_odor_source(source_pos=(20,18),plume_id=pid,radius=4,emit_rate=0.1)
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,18),source_bottomright=(24,20),emit_rate=0.1)
+    env.add_vis_layer(layer_type='odor',pid=0)
+
+# (self,temp_id=None,source_pos=(0,0),fix_x=None,fix_y=None,tau=1,peak=25,trough=18)
+    tid = env.add_temp_gradient(source_pos=(14,14),fix_x=14,fix_y=None,tau=1,peak=25,trough=18)
+    env.add_vis_layer(layer_type='temp',pid=tid)
 
     # nextaction = 'forward'
     # for n in range(1000):

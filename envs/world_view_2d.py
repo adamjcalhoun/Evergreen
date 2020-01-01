@@ -30,7 +30,7 @@ class WorldView2D:
         # Create the animal
         self.__worm_img = pygame.image.load('envs/res/reddragon.png')
         # https://stackoverflow.com/questions/43046376/how-to-change-an-image-size-in-pygame
-        self.__worm_img = pygame.transform.scale(self.__worm_img, (10, 10))
+        self.__worm_img = pygame.transform.scale(self.__worm_img, (int(2*self.__view_scale[0]), int(2*self.__view_scale[1])))
         self.__worm = np.zeros(2)
 
         # Create a background
@@ -79,10 +79,13 @@ class WorldView2D:
             # print('view_update took ' + str(time() - t))
 
     def __draw_world(self,viewlayers=None):
-        t = time()
+        # t = time()
 
-        cells2 = np.ndarray((viewlayers.shape[0],viewlayers.shape[1],3))
-        cells2[:,:,0] = np.clip(viewlayers*255,0,255).astype(int)
+        cells2 = np.ndarray((viewlayers[0].shape[0],viewlayers[0].shape[1],3))
+        # print(len(viewlayers))
+        for ii,layer in enumerate(viewlayers):
+            # cells2[:,:,ii] = np.clip(layer*255,0,255).astype(int)
+            cells2[:,:,int(ii)] = np.clip((layer-np.mean(layer))/np.std(layer)*64 + 128,0,255).astype(int)
         pygame.surfarray.blit_array(self.world_layer, cells2)
 
         self.screen.blit(self.world_layer, (0, 0))
