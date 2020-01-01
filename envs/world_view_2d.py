@@ -7,6 +7,7 @@ from time import time
 
 # based on https://github.com/MattChanTK/gym-maze/blob/master/gym_maze/envs/maze_view_2d.py
 # https://opengameart.org/content/dragons
+# http://pymedia.org/tut/src/make_video.py.html
 
 class WorldView2D:
 
@@ -28,7 +29,7 @@ class WorldView2D:
         self.__view_scale = (self.__world_view_size[0] / world_size[0],self.__world_view_size[1] / world_size[1])
 
         # Create the animal
-        self.__worm_img = pygame.image.load('envs/res/reddragon.png')
+        self.__worm_img = pygame.image.load('envs/res/creature.png')
         # https://stackoverflow.com/questions/43046376/how-to-change-an-image-size-in-pygame
         self.__worm_img = pygame.transform.scale(self.__worm_img, (int(2*self.__view_scale[0]), int(2*self.__view_scale[1])))
         self.__worm = np.zeros(2)
