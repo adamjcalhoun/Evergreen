@@ -26,8 +26,11 @@ class WormWorldEnv(gym.Env):
         self.odor_history_length = 10
         self.odor_history = np.zeros(self.odor_history_length)
 
+        self.temp_history_length = 10
+        self.temp_history = np.zeros(self.temp_history_length)
+
         # need to fix this...
-        self.observation_space = spaces.Box(np.zeros(self.odor_history_length,),np.ones(self.odor_history_length,))
+        self.observation_space = spaces.Box(np.zeros(self.odor_history_length + self.temp_history_length,),np.ones(self.odor_history_length + self.temp_history_length,))
         self.action_space = spaces.Discrete(4)
 
         self.__world = World(world_size=world_size)
@@ -71,9 +74,11 @@ class WormWorldEnv(gym.Env):
 
             self.viewer.view_update(agent=self.__world.get_agent_location(),viewlayers=viewlayers)
 
-        self.update_odor_history(newstate)
+        self.update_history(newstate)
 
-        reward = np.exp(newstate)
+        reward = np.exp(newstate[0])
+        pos = self.__world.get_agent_location()
+        reward -= np.abs(self.__world.agent.get_agent_temp() - newstate[1])
         # if np.array_equal(self.worm_view.robot, self.worm_view.goal):
         #     reward = 1
         #     done = True
@@ -83,7 +88,11 @@ class WormWorldEnv(gym.Env):
         # reward = 0
         done = False
 
-        self.state = list(self.odor_history)
+        # print('newstate: ' + str(newstate) + ' ... reward: ' + str(reward))
+
+        # print(np.append(self.odor_history,self.temp_history))
+        self.state = list(np.append(self.odor_history,self.temp_history))
+        # print(len(self.state))
 
         info = {}
 
@@ -93,24 +102,32 @@ class WormWorldEnv(gym.Env):
         return self.__world.add_odor_source(source_pos=source_pos,death_rate=death_rate,diffusion_scale=diffusion_scale,emit_rate=emit_rate,plume_id=plume_id)
 
     def add_circular_odor_source(self,source_pos=(0,0),plume_id=0,radius=0,emit_rate=0):
-        self.__world.add_circular_odor_source(source_pos=source_pos,plume_id=plume_id,radius=radius,emit_rate=emit_rate)
+        return self.__world.add_circular_odor_source(source_pos=source_pos,plume_id=plume_id,radius=radius,emit_rate=emit_rate)
 
     def add_square_odor_source(self,plume_id=0,source_topleft=None,source_bottomright=None,emit_rate=0):
-        self.__world.add_square_odor_source(plume_id=plume_id,source_topleft=source_topleft,source_bottomright=source_bottomright,emit_rate=emit_rate)
+        return self.__world.add_square_odor_source(plume_id=plume_id,source_topleft=source_topleft,source_bottomright=source_bottomright,emit_rate=emit_rate)
+
+    def set_odor_source_type(self,source_type='none',pid=0):
+        self.__world.set_odor_source_type(source_type=source_type,pid=pid)
+
+    def set_agent_temp(self,mean_temp=20):
+        self.__world.agent.set_agent_temp(mean_temp=mean_temp)
 
     def add_temp_gradient(self,temp_id=None,source_pos=(0,0),fix_x=None,fix_y=None,tau=1,peak=25,trough=18):
         return self.__world.add_temp_gradient(temp_id=temp_id,source_pos=source_pos,fix_x=fix_x,fix_y=fix_y,tau=tau,peak=peak,trough=trough)
 
-    def update_odor_history(self,newstate):
+    def update_history(self,newstate):
         self.odor_history[1:] = self.odor_history[:-1]
         self.odor_history[0] = newstate[0]
+        self.temp_history[1:] = self.temp_history[:-1]
+        self.temp_history[0] = newstate[1]
 
     def reset(self):
         # self.maze_view.reset_robot()
         # create environment
         # choose location for worm
         self.__world.set_agent_location([10,10])
-        self.state = np.zeros(10,)
+        self.state = np.zeros(self.odor_history_length+self.temp_history_length,)
         self.steps_beyond_done = None
         self.done = False
         return self.state
@@ -125,14 +142,6 @@ class WormWorldEnv(gym.Env):
 
 
 class World:
-
-    COMPASS = {
-        "N": (0, -1),
-        "E": (1, 0),
-        "S": (0, 1),
-        "W": (-1, 0)
-    }
-
     def __init__(self, world_cells=None, world_size=(512,512), num_odor_sources=0):
 
         # maze member variables
@@ -190,8 +199,8 @@ class World:
         plume = self.odor_sources[plume_id]
         return plume.add_square_source(source_topleft=source_topleft,source_bottomright=source_bottomright,emit_rate=emit_rate)
 
-    def set_odor_source_type(self,sourcetype='none',pid=0):
-        self.odor_type[pid] = sourcetype
+    def set_odor_source_type(self,source_type='none',pid=0):
+        self.odor_type[pid] = source_type
 
     def get_odor_source_type(self,pid):
         return self.odor_type[pid]
@@ -246,13 +255,16 @@ class World:
             self.agent.set_location(location)
 
         state = []
-        for odor in self.odor_sources:
-            (x,y) = self.agent.get_location()
+        (x,y) = self.agent.get_location()
+        for odor_num,odor in enumerate(self.odor_sources):
             state.append(odor.get_odor_value(x,y))
-            # if odor.get_odor_type() == 'food':
-            #   state.append(odor.get_odor_emit(x,y))
-            #   odor.decay_plume(x,y)
-            odor.consume_plume(x,y)
+            if self.get_odor_source_type(pid=odor_num) == 'food':
+                # state.append(odor.get_odor_emit(x=x,y=y))
+                odor.decay_plume(x=x,y=y,decay_amount=1)
+            odor.consume_plume(x=x,y=y)
+
+        for temp_num,temp in enumerate(self.temp_layers):
+            state.append(temp.get_temp_value(x,y))
 
         return state
 
@@ -303,6 +315,7 @@ class Agent:
     def __init__(self,location=[10,10],direction=0):
         self.__location = location
         self.__direction = direction
+        self.__mean_temp = 0
 
     def update_location(self,location=None):
         self.__location = location
@@ -316,6 +329,12 @@ class Agent:
     def move(self,forward_backward=1):
         self.__location[0] += int(np.cos(self.__direction)*forward_backward)
         self.__location[1] += int(np.sin(self.__direction)*forward_backward)
+
+    def set_agent_temp(self,mean_temp=20):
+        self.__mean_temp = mean_temp
+
+    def get_agent_temp(self):
+        return self.__mean_temp
 
     def set_location(self,location):
         self.__location = location
@@ -378,6 +397,8 @@ class OdorPlume:
 
             self.num_sources += 1
 
+        return self.plume_id
+
     def step(self):
         world_diffusion = np.random.random([self.world_size[0],self.world_size[1],4])
         world_diffusion /= np.tile(np.expand_dims(np.sum(world_diffusion,axis=2),axis=-1),(1,1,4))
@@ -399,14 +420,20 @@ class OdorPlume:
         # or lose random %? or divide?
         self.odor -= self.death_rate
         self.odor[self.odor < self.min_concentration] = 0
+        # print((len(self.emit_rate),len(self.source_pos)))
 
         
     def get_odor_value(self,x,y):
         return self.odor[int(x),int(y)]
 
     def get_odor_emit(self,x,y):
-        plume_number = [i for i,val in enumerate(list(range(self.source_pos))) if val == (x,y)][0]
-        return self.emit_rate[plume_number]
+        # print([i for i,val in enumerate(self.source_pos) if val == (x,y)])
+        plume_number = [i for i,val in enumerate(self.source_pos) if val == (x,y)]
+        if len(plume_number) > 0:
+            plume_number = plume_number[0]
+            return self.emit_rate[plume_number]
+        else:
+            return 0
 
     def get_full_odor(self):
         return self.odor
@@ -426,18 +453,25 @@ class OdorPlume:
         return consume
 
     def decay_plume(self,plume_number=None,decay_amount=0,x=-1,y=-1):
+        # print((plume_number,x,y))
         if x != -1 and y != -1:
             if (x,y) not in self.source_pos:
                 return 0
             else:
-                plume_number = [i for i,val in enumerate(list(range(self.source_pos))) if val == (x,y)][0]
+                plume_number = [i for i,val in enumerate(self.source_pos) if val == (x,y)][0]
 
+        # print([i for i,val in enumerate(self.source_pos) if val == (x,y)])
+        # print([i for i,val in enumerate(self.source_pos) if val == (x,y)])
+        # print(len(self.source_pos))
+        # print(plume_number)
+        print('decaying ' + str(plume_number) + ' by ' + str(decay_amount))
         amt_decay = max(self.emit_rate[plume_number]-decay_amount,0)
         self.emit_rate[plume_number] = amt_decay
 
         return amt_decay
 
     def decay_all_plumes(self,decay_amount=0):
+        # print('decay all plumes?')
         amt_decay = 0
         for pnum in list(range(self.num_sources)):
             amt_decay += decay_plume(plume_number=pnum, decay_amount=decay_amount)
@@ -473,7 +507,6 @@ class TemperatureGradient:
     def set_gradient(self,gradient=None):
         self.__temp = gradient
 
-        
     def get_temp_value(self,x,y):
         return self.__temp[x,y]
 

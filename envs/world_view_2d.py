@@ -86,7 +86,7 @@ class WorldView2D:
         # print(len(viewlayers))
         for ii,layer in enumerate(viewlayers):
             # cells2[:,:,ii] = np.clip(layer*255,0,255).astype(int)
-            cells2[:,:,int(ii)] = np.clip((layer-np.mean(layer))/np.std(layer)*64 + 128,0,255).astype(int)
+            cells2[:,:,int(ii)] = np.clip((layer - np.mean(layer))/np.std(layer)*64 + 128,0,255).astype(int)
         pygame.surfarray.blit_array(self.world_layer, cells2)
 
         self.screen.blit(self.world_layer, (0, 0))
