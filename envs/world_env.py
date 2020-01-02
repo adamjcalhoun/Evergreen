@@ -72,7 +72,7 @@ class WormWorldEnv(gym.Env):
         if self.enable_render:
             viewlayers = [self.__world.get_env_values(layer_type=layer[0],pid=layer[1]) for layer in self.__vis_layers]
 
-            self.viewer.view_update(agent=self.__world.get_agent_location(),viewlayers=viewlayers)
+            self.viewer.view_update(agent=self.__world.get_agent_location(),viewlayers=viewlayers,agent_angle=self.__world.agent.get_angled())
 
         self.update_history(newstate)
 
@@ -338,6 +338,12 @@ class Agent:
 
     def set_location(self,location):
         self.__location = location
+
+    def get_angle(self):
+        return self.__direction
+
+    def get_angled(self):
+        return np.rad2deg(self.__direction)
 
     def step(self):
         # place-holder for when we want to do more things (hunger etc)

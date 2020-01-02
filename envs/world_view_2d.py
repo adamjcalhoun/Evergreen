@@ -56,7 +56,7 @@ class WorldView2D:
         except Exception:
             pass
 
-    def view_update(self,agent=None,viewlayers=None):
+    def view_update(self,agent=None,viewlayers=None,agent_angle=0):
         if not self.__game_over:
             t = time()
             if viewlayers is not None:
@@ -74,7 +74,7 @@ class WorldView2D:
                 self.__worm[0] *= self.__view_scale[0]
                 self.__worm[1] *= self.__view_scale[1]
                 # print('scaled! scaled!')
-                self.__draw_worm()
+                self.__draw_worm(angle=agent_angle)
 
             pygame.display.flip()
             # print('view_update took ' + str(time() - t))
@@ -93,10 +93,12 @@ class WorldView2D:
 
 
 
-    def __draw_worm(self, transparency=255):
-        # replace with cute pixel art
-
-        self.screen.blit(self.__worm_img,(self.__worm[0],self.__worm[1]))
+    def __draw_worm(self, transparency=255, angle=0):
+        if angle != 0:
+            rotated_image = pygame.transform.rotate(self.__worm_img,angle)
+        else:
+            rotated_image = self.__worm_img
+        self.screen.blit(rotated_image,(self.__worm[0],self.__worm[1]))
 
 
 
