@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 
 import gym
 from gym import error, spaces, utils
@@ -35,6 +36,8 @@ class WormWorldEnv(gym.Env):
 
         self.__world = World(world_size=world_size)
         self.__world.add_agent(location=[10,10])
+
+        self.__world_save = None
 
         # initial condition
         self.state = None
@@ -126,11 +129,19 @@ class WormWorldEnv(gym.Env):
         # self.maze_view.reset_robot()
         # create environment
         # choose location for worm
+        if self.__world_save is not None:
+            self.__world = self.__world_save
+
         self.__world.set_agent_location([10,10])
         self.state = np.zeros(self.odor_history_length+self.temp_history_length,)
         self.steps_beyond_done = None
         self.done = False
         return self.state
+
+    def fix_environment(self):
+        print('saved!')
+        self.__world_save = copy.deepcopy(self.__world)
+        print(self.__world_save)
 
     def is_game_over(self):
         # return self.maze_view.game_over
@@ -168,11 +179,7 @@ class World:
         for pid in list(range(num_odor_sources)):
             plume = OdorPlume(world_size=self.world_size,plume_id=pid,death_rate=0.001,diffusion_scale=3)
             for n in range(num_odor_sources):
-                # plume.add_source(source_pos=(np.random.random(1)*self.world_size[0],np.random.random(1)*self.world_size[1]),emit_rate=np.random.random(1)*5)
-                plume.add_source(source_pos=(16,16),emit_rate=1)
-                # plume.add_source(source_pos=(30,16),emit_rate=2)
-                # plume.add_source(source_pos=(16,30),emit_rate=3)
-                # plume.add_source(source_pos=(100,100),emit_rate=5)
+                plume.add_source(source_pos=(np.random.random(1)*self.world_size[0],np.random.random(1)*self.world_size[1]),emit_rate=np.random.random(1)*5)
 
             plume.step()
 
