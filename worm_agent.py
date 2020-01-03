@@ -4,13 +4,14 @@ import numpy as np
 from collections import deque
 
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dense, BatchNormalization
 from tensorflow.keras.optimizers import Adam
 import datetime
 
 from envs.world_env import WormWorldEnv
 
 from time import time
+import argparse
 
 # For training the agent:
 # https://www.digitalocean.com/community/tutorials/how-to-build-atari-bot-with-openai-gym
@@ -28,13 +29,44 @@ class WormAgent:
         self.model = self._build_model()
 
 
-    def _build_model(self):
+    def _build_model(self,model_type='dense'):
         # Neural Net for Deep-Q learning Model
-        model = Sequential()
-        model.add(Dense(12, input_dim=self.state_size, activation='relu'))
-        model.add(Dense(12, activation='relu'))
-        model.add(Dense(self.action_size, activation='linear'))
-        model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
+        if model_type == 'dense':
+            model = Sequential()
+            model.add(Dense(12, input_dim=self.state_size, activation='relu'))
+            model.add(Dense(12, activation='relu'))
+            model.add(Dense(self.action_size, activation='linear'))
+            model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
+        elif model_type == 'deeperdense':
+            model = Sequential()
+            model.add(Dense(12, input_dim=self.state_size, activation='relu'))
+            model.add(Dense(12, activation='relu'))
+            model.add(Dense(12, activation='relu'))
+            model.add(Dense(12, activation='relu'))
+            model.add(Dense(self.action_size, activation='linear'))
+            model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
+        elif model_type == 'dense_batchnorm':
+            model = Sequential()
+            model.add(Dense(12, input_dim=self.state_size, activation='relu'))
+            model.add(BatchNormalization())
+            model.add(Dense(12, activation='relu'))
+            model.add(BatchNormalization())
+            model.add(Dense(self.action_size, activation='linear'))
+            model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
+        elif model_type == 'dense_batchnorm2':
+            model = Sequential()
+            model.add(BatchNormalization(input_dim=self.state_size))
+            model.add(Dense(12, activation='relu'))
+            model.add(BatchNormalization())
+            model.add(Dense(12, activation='relu'))
+            model.add(BatchNormalization())
+            model.add(Dense(self.action_size, activation='linear'))
+            model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
+        elif model_type == 'LSTM':
+            pass
+        elif model_type == 'dense_feedback':
+            pass
+
         return model
 
     def save_model(self,dir_name=None):
@@ -59,7 +91,7 @@ class WormAgent:
         # print(self.memory)
 
         for state, action, reward, next_state, done in minibatch:
-            # t = time()
+            t = time()
             target = reward
             # print('training')
 
@@ -79,7 +111,7 @@ class WormAgent:
             target_f[0][action] = target
             # print('target_f time: ' + str(time() - t))
             history = self.model.fit(np.expand_dims(state,axis=0), target_f, epochs=1, verbose=0)
-            # print('history time: ' + str(time() - t))
+            print('history time: ' + str(time() - t))
 
             # print(history.history['loss'])
             loss += history.history['loss'][-1]
@@ -91,7 +123,12 @@ class WormAgent:
 
 
 if __name__ == "__main__":
-    env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
+    parser = argparse.ArgumentParser(description='worm_agent')
+    parser.add_argument('-s', '--show', action='store_true', help='Show pygame visualization')
+    args = parser.parse_args()
+
+    # env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
+    env = WormWorldEnv(enable_render=args.show,world_size=(32,32),world_view_size=(1024,1024))
     pid = env.add_odor_source(source_pos=(14,14),death_rate=0.01,diffusion_scale=2,emit_rate=0)
     # pid = env.add_odor_source(source_pos=(20,18),death_rate=0.01,diffusion_scale=1,emit_rate=1,plume_id=pid)
     # pid = env.add_circular_odor_source(source_pos=(20,18),plume_id=pid,radius=4,emit_rate=0.1)
@@ -99,32 +136,14 @@ if __name__ == "__main__":
     env.add_vis_layer(layer_type='odor',pid=pid)
     env.set_odor_source_type(source_type='food',pid=pid)
 
-# (self,temp_id=None,source_pos=(0,0),fix_x=None,fix_y=None,tau=1,peak=25,trough=18)
+
+
+    # (self,temp_id=None,source_pos=(0,0),fix_x=None,fix_y=None,tau=1,peak=25,trough=18)
     tid = env.add_temp_gradient(source_pos=(14,14),fix_x=14,fix_y=None,tau=1,peak=22,trough=18)
     env.set_agent_temp(mean_temp=18)
-    env.add_vis_layer(layer_type='temp',pid=tid)
+    # env.add_vis_layer(layer_type='temp',pid=tid)
 
-    # nextaction = 'forward'
-    # for n in range(1000):
-    #     state, reward, done, info = env.step(action=nextaction)
-    #     nextaction = 'forward'
-
-    #     if np.mean(state[:5]) < np.mean(state[5:]):
-    #         if np.random.random(1) < .3:
-    #             if np.random.random(1) < .5:
-    #                 nextaction = 'left'
-    #             else:
-    #                 nextaction = 'right'
-    #     elif np.mean(state[:5]) == np.mean(state[5:]):
-    #         if np.random.random(1) < .01:
-    #             if np.random.random(1) < .5:
-    #                 nextaction = 'left'
-    #             else:
-    #                 nextaction = 'right'
-
-    #    # print(state)
-    #    # print(reward)
-    # exit()
+    env.fix_environment() # save the environment for when we need to reset it
 
     state_size = env.observation_space.shape[0]
     # action_size = len(env.action_space)
@@ -143,29 +162,18 @@ if __name__ == "__main__":
             # env.render()
             t = time()
             action = agent.act(state)
-            # print('action: ' + str(time() - t))
             next_state, reward, done, _ = env.step(action)
-            # print(reward)
-            # print('rewarded!!!!')
-            # print('step: ' + str(time() - t))
-            # reward = reward if not done else -10
-            # next_state = np.reshape(next_state, [1, state_size])
-            # print(len(state))
+
             agent.remember(state, action, reward, next_state, done)
-            # print('remember: ' + str(time() - t))
-            # print(reward)
             state = next_state
 
             if done:
-                # print("episode: {}/{}, score: {}, e: {:.2}".format(e, EPISODES, time, agent.epsilon))
                 print('episode: ' + str(e) + '/' + str(EPISODES) + ', score: ' + str(tt) + ', e: ' + str(agent.epsilon))
                 break
 
             if len(agent.memory) > batch_size:
 
                 loss = agent.replay(batch_size)
-                # print('replay: ' + str(time() - t))
-                # Logging training loss every 10 timesteps
                 if tt % 10 == 0:
                     print('episode: ' + str(e) + '/' + str(EPISODES) + ', time: ' + str(tt) + ', loss: ' + str(loss))
 
