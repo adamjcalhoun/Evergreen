@@ -15,7 +15,7 @@ class WormWorldEnv(gym.Env):
     # https://stackoverflow.com/questions/44404281/openai-gym-understanding-action-space-notation-spaces-box
     ACTION = ['forward','backward','left','right']
 
-    def __init__(self, world_file=None, world_size=(512,512), world_view_size=None, enable_render=False):
+    def __init__(self, world_file=None, world_size=(512,512), world_view_size=None, enable_render=False, reward_plan=''):
 
         self.viewer = None
         self.enable_render = enable_render
@@ -29,6 +29,15 @@ class WormWorldEnv(gym.Env):
 
         self.temp_history_length = 10
         self.temp_history = np.zeros(self.temp_history_length)
+
+        self.reward_plan = np.zeros((4,))
+        for reward_name in reward_plan.split(','):
+            if reward_name == 'odor':
+                self.reward_plan[0] = 1
+            elif reward_name == 'temp':
+                self.reward_plan[1] = 1
+            elif reward_name == 'food':
+                self.reward_plan[2] = 1
 
         # need to fix this...
         self.observation_space = spaces.Box(np.zeros(self.odor_history_length + self.temp_history_length,),np.ones(self.odor_history_length + self.temp_history_length,))
@@ -79,9 +88,17 @@ class WormWorldEnv(gym.Env):
 
         self.update_history(newstate)
 
-        reward = np.exp(newstate[0])
-        pos = self.__world.get_agent_location()
-        reward -= np.abs(self.__world.agent.get_agent_temp() - newstate[1])
+        reward = 0
+        if self.reward_plan[0] == 1:
+            reward += np.exp(newstate[0])
+
+        # pos = self.__world.get_agent_location()
+        if self.reward_plan[1] == 1:
+            reward -= np.abs(self.__world.agent.get_agent_temp() - newstate[1])
+
+        if self.reward_plan[2] == 1:
+            reward += newstate[2]   # reward for eating food
+
         # if np.array_equal(self.worm_view.robot, self.worm_view.goal):
         #     reward = 1
         #     done = True
@@ -262,16 +279,19 @@ class World:
             self.agent.set_location(location)
 
         state = []
+        amt_decay =0
         (x,y) = self.agent.get_location()
         for odor_num,odor in enumerate(self.odor_sources):
             state.append(odor.get_odor_value(x,y))
             if self.get_odor_source_type(pid=odor_num) == 'food':
                 # state.append(odor.get_odor_emit(x=x,y=y))
-                odor.decay_plume(x=x,y=y,decay_amount=1)
+                amt_decay += odor.decay_plume(x=x,y=y,decay_amount=1)
             odor.consume_plume(x=x,y=y)
 
         for temp_num,temp in enumerate(self.temp_layers):
             state.append(temp.get_temp_value(x,y))
+
+        state.append(amt_decay)
 
         return state
 
@@ -477,11 +497,12 @@ class OdorPlume:
         # print([i for i,val in enumerate(self.source_pos) if val == (x,y)])
         # print(len(self.source_pos))
         # print(plume_number)
-        print('decaying ' + str(plume_number) + ' by ' + str(decay_amount))
+        # print('decaying ' + str(plume_number) + ' by ' + str(decay_amount))
+        old_amt = self.emit_rate[plume_number]
         amt_decay = max(self.emit_rate[plume_number]-decay_amount,0)
         self.emit_rate[plume_number] = amt_decay
 
-        return amt_decay
+        return (old_amt - amt_decay)
 
     def decay_all_plumes(self,decay_amount=0):
         # print('decay all plumes?')

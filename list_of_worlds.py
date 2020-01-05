@@ -1,4 +1,40 @@
 
+# WORLD 1.1
+# -> Show we can chemotax
+# WORLD 1.2
+# -> Show we can thermotax
+# WORLD 1.3
+# -> Show we can learn chemotaxis based only on food association
+# WORLD 1.4
+# -> Show we can learn aversive chemotaxis based only on food association
+# WORLD 1.5
+# -> Show we can learn chemotaxis + thermotaxis
+
+# WORLD 2.1
+# -> Time-varying hunger (state-based behaviors)
+
+# WORLD 3.1
+# -> Patchy distribution of food (foraging?)
+
+# WORLD 4.1
+# -> Egg laying
+
+# WORLD 5.1
+# -> Multi-agent competition/collaboration
+
+# BODY 1.1
+# -> Multilayer dense network
+# BODY 1.2
+# -> Normalization/regularization
+# BODY 1.3
+# -> Vary number of layers and units/layer
+# BODY 2.1
+# -> LSTM
+# BODY 3.1
+# -> Feedback (recurrence) from lower layers
+
+
+# has anyone shown a neural network or RL trained to move and to get reward based on food will perform chemotaxis?
 
 # what do we want to train the agent on?
 env = WormWorldEnv(enable_render=True,world_size=(32,32))
@@ -59,3 +95,14 @@ env.add_odor_source(source_loc=(14,14),odor_type='disease')
 # use keras-rl? 
 # https://hub.packtpub.com/build-reinforcement-learning-agent-in-keras-tutorial/
 # https://github.com/keras-rl/keras-rl/tree/master/examples
+
+
+# installing environment
+# note that tensorflow2 is ~10x slower than tensorflow1. I think there is a parameter that can speed tf2 up
+# but I have not yet tested that (add a line in the code that says '@tf.function')
+conda create -n evergreen python=3
+conda activate evergreen
+conda install numpy tensorflow-gpu=1.15 git
+pip install gym
+pip install pygame
+git clone https://github.com/adamjcalhoun/Evergreen.git

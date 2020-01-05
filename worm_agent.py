@@ -111,7 +111,7 @@ class WormAgent:
             target_f[0][action] = target
             # print('target_f time: ' + str(time() - t))
             history = self.model.fit(np.expand_dims(state,axis=0), target_f, epochs=1, verbose=0)
-            print('history time: ' + str(time() - t))
+            # print('history time: ' + str(time() - t))
 
             # print(history.history['loss'])
             loss += history.history['loss'][-1]
@@ -125,10 +125,24 @@ class WormAgent:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='worm_agent')
     parser.add_argument('-s', '--show', action='store_true', help='Show pygame visualization')
+    parser.add_argument('-d', '--dir', type=str, help='Choose where to save data to')
+    parser.add_argument('-ro', '--reward_odor', action='store_true', help='Reward on odor')
+    parser.add_argument('-rt', '--reward_temp', action='store_true', help='Reward on temp')
+    parser.add_argument('-rf', '--reward_food', action='store_true', help='Reward on food')
+    parser.add_argument('-re', '--reward_eggs', action='store_true', help='Reward for egg laying')
+    parser.add_argument('-ih', '--internal_hunger', action='store_true', help='Have an internal hunger variable (add to state)')
     args = parser.parse_args()
 
+    reward_string = ''
+    if args.reward_odor:
+        reward_string += 'odor,'
+    if args.reward_temp:
+        reward_string += 'temp,'
+    if args.reward_food:
+        reward_string += 'food,'
+
     # env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
-    env = WormWorldEnv(enable_render=args.show,world_size=(32,32),world_view_size=(1024,1024))
+    env = WormWorldEnv(enable_render=args.show,world_size=(32,32),world_view_size=(1024,1024),reward_plan=reward_string)
     pid = env.add_odor_source(source_pos=(14,14),death_rate=0.01,diffusion_scale=2,emit_rate=0)
     # pid = env.add_odor_source(source_pos=(20,18),death_rate=0.01,diffusion_scale=1,emit_rate=1,plume_id=pid)
     # pid = env.add_circular_odor_source(source_pos=(20,18),plume_id=pid,radius=4,emit_rate=0.1)
@@ -153,12 +167,12 @@ if __name__ == "__main__":
     done = False
     batch_size = 32
 
-    EPISODES = 5
+    EPISODES = 20
     # http://pymedia.org/tut/src/make_video.py.html
     for e in range(EPISODES):
         state = env.reset()
         # state = np.reshape(state, [1, state_size])
-        for tt in range(500):
+        for tt in range(1000):
             # env.render()
             t = time()
             action = agent.act(state)
@@ -177,6 +191,6 @@ if __name__ == "__main__":
                 if tt % 10 == 0:
                     print('episode: ' + str(e) + '/' + str(EPISODES) + ', time: ' + str(tt) + ', loss: ' + str(loss))
 
-        agent.save_model()
+        agent.save_model(dir_name=args.dir)
 
 
