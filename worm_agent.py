@@ -170,6 +170,9 @@ def create_large_environment(reward=''):
     pid = env.add_square_odor_source(plume_id=pid,source_topleft=(400,18),source_bottomright=(424,20),emit_rate=1)
     pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,408),source_bottomright=(24,420),emit_rate=5)
     pid = env.add_square_odor_source(plume_id=pid,source_topleft=(410,418),source_bottomright=(424,420),emit_rate=0.1)
+
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(190,190),source_bottomright=(200,200),emit_rate=1)
+    
     env.add_vis_layer(layer_type='odor',pid=pid)
     env.set_odor_source_type(source_type='food',pid=pid)
 

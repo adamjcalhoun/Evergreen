@@ -36,6 +36,9 @@ class WormWorldEnv(gym.Env):
         self.has_hunger = True
 
         self.eggs = []
+        self.egg_delay = 5
+        self.egg_reward_per_food = 1
+        self.egg_reward_radius = 5
 
         self.reward_plan = np.zeros((4,))
         for reward_name in reward_plan.split(','):
@@ -45,6 +48,8 @@ class WormWorldEnv(gym.Env):
                 self.reward_plan[1] = 1
             elif reward_name == 'food':
                 self.reward_plan[2] = 1
+            elif reward_name == 'egg':
+                pass
 
         # need to fix this...
         self.observation_space = spaces.Box(np.zeros(self.odor_history_length + self.temp_history_length + self.has_hunger,),np.ones(self.odor_history_length + self.temp_history_length + self.has_hunger,))
@@ -116,6 +121,16 @@ class WormWorldEnv(gym.Env):
             if self.has_hunger:
                 if self.hunger < 0:
                     reward += self.hunger
+
+        # # for laying eggs
+        # if self.reward_plan[3] == 1:
+        #     for egg in self.eggs:
+        #         egg[1] -= 1 # decrement the egg delay by one time step
+
+        #         if egg[1] < 0:      # less than 0 because we decrement immediately
+        #             reward += self.egg_reward_radius * some_matrix  # this part isn't immediately trivial
+        #     self.eggs = [good_egg for good_egg in self.eggs if good_egg[1] < 0]
+
 
         # if np.array_equal(self.worm_view.robot, self.worm_view.goal):
         #     reward = 1
@@ -300,7 +315,8 @@ class World:
 
         if action == 'lay_egg':
             # cost to lay egg that is rewarded based on food near animal at timestep t+T
-            pass
+            self.eggs.append([self.agent.get_location(),self.egg_delay])
+
 
         state = []
         amt_decay =0
@@ -424,11 +440,26 @@ class OdorPlume:
         self.emit_rate = []
         self.num_sources = 0
 
+        self.source_agent = []
 
-    def add_source(self,source_pos=None,emit_rate=None):
-        self.source_pos.append((int(source_pos[0]),int(source_pos[1])))
+
+    def add_source(self,source_pos=None,emit_rate=None, source_agent=None):
+        if (source_pos is None and source_agent is None) or (source_pos is not None and source_agent is not None):
+            print('error! please specify either the source position or the agent, but not both')
+            return None
+
+        if source_pos is not None and self.source_agent != []:
+            print('error! cannot add new immobile source when this source comes from an agent')
+
+        if source_pos is not None:
+            self.source_pos.append((int(source_pos[0]),int(source_pos[1])))
+        if source_agent is not None:
+            self.source_agent.append(source_agent)
+            self.source_pos.append((source_agent.get_location()))
+
         self.emit_rate.append(emit_rate)
         self.num_sources += 1
+
 
     def add_circular_source(self,source_pos=None,radius=None,emit_rate=None):
         x = np.arange(0,self.world_size[0])
@@ -459,6 +490,9 @@ class OdorPlume:
         return self.plume_id
 
     def step(self):
+        if self.source_agent is not None:
+            self.source_pos = [agent.get_pos for agent in self.source_agent]
+
         world_diffusion = np.random.random([self.world_size[0],self.world_size[1],4])
         world_diffusion /= np.tile(np.expand_dims(np.sum(world_diffusion,axis=2),axis=-1),(1,1,4))
 
