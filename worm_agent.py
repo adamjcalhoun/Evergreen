@@ -3,7 +3,7 @@ import gym
 import numpy as np
 from collections import deque
 
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, BatchNormalization
 from tensorflow.keras.optimizers import Adam
 import datetime
@@ -12,12 +12,17 @@ from envs.world_env import WormWorldEnv
 
 from time import time
 import argparse
+import h5py
+import pickle
 
 # For training the agent:
 # https://www.digitalocean.com/community/tutorials/how-to-build-atari-bot-with-openai-gym
 
+
+# add in hierachical RL?
+# https://towardsdatascience.com/advanced-reinforcement-learning-6d769f529eb3
 class WormAgent:
-    def __init__(self, state_size, action_size):
+    def __init__(self, state_size, action_size, load_only=False):
         self.state_size = state_size
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
@@ -26,7 +31,10 @@ class WormAgent:
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
         self.learning_rate = 0.001
-        self.model = self._build_model()
+        if load_only:
+            self.model = None
+        else:
+            self.model = self._build_model()
 
 
     def _build_model(self,model_type='dense'):
@@ -75,6 +83,22 @@ class WormAgent:
 
         self.model.save(dir_name + datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.h5')
 
+    def save_memory(self,dir_name=None):
+        if dir_name is None:
+            dir_name = ''
+
+        with open(dir_name + 'memory_' + datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.pkl','wb') as handle:
+            pickle.dump(self.memory,handle)
+
+        # with h5py.File(dir_name + 'memory_' + datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.h5','w') as f:
+        #     f.create_dataset('memory',data=np.array(self.memory))
+
+    def load_model(self,dir_name=None):
+        if dir_name is None:
+            dir_name = ''
+
+        self.model = load_model(dir_name + datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.h5')
+
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
 
@@ -121,11 +145,43 @@ class WormAgent:
 
         return loss
 
+def create_simple_environment(reward=''):
+    env = WormWorldEnv(enable_render=args.show,world_size=(32,32),world_view_size=(1024,1024),reward_plan=reward)
+    pid = env.add_odor_source(source_pos=(14,14),death_rate=0.01,diffusion_scale=2,emit_rate=0)
+
+    # pid = env.add_odor_source(source_pos=(20,18),death_rate=0.01,diffusion_scale=1,emit_rate=1,plume_id=pid)
+    # pid = env.add_circular_odor_source(source_pos=(20,18),plume_id=pid,radius=4,emit_rate=0.1)
+
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,18),source_bottomright=(24,20),emit_rate=0.1)
+    env.add_vis_layer(layer_type='odor',pid=pid)
+    env.set_odor_source_type(source_type='food',pid=pid)
+
+    tid = env.add_temp_gradient(source_pos=(14,14),fix_x=14,fix_y=None,tau=1,peak=22,trough=18)
+    env.set_agent_temp(mean_temp=18)
+    return env
+
+
+def create_large_environment(reward=''):
+    # 512x512? or larger?
+    env = WormWorldEnv(enable_render=args.show,world_size=(512,512),world_view_size=(1024,1024),reward_plan=reward)
+    pid = env.add_odor_source(source_pos=(14,14),death_rate=0.01,diffusion_scale=2,emit_rate=0)
+
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,18),source_bottomright=(24,20),emit_rate=0.1)
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(400,18),source_bottomright=(424,20),emit_rate=1)
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,408),source_bottomright=(24,420),emit_rate=5)
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(410,418),source_bottomright=(424,420),emit_rate=0.1)
+    env.add_vis_layer(layer_type='odor',pid=pid)
+    env.set_odor_source_type(source_type='food',pid=pid)
+
+    # tid = env.add_temp_gradient(source_pos=(14,14),fix_x=14,fix_y=None,tau=1,peak=22,trough=18)
+    # env.set_agent_temp(mean_temp=18)
+    return env
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='worm_agent')
     parser.add_argument('-s', '--show', action='store_true', help='Show pygame visualization')
     parser.add_argument('-d', '--dir', type=str, help='Choose where to save data to')
+    parser.add_argument('--simulate', type=str, help='Simulate only')
     parser.add_argument('-ro', '--reward_odor', action='store_true', help='Reward on odor')
     parser.add_argument('-rt', '--reward_temp', action='store_true', help='Reward on temp')
     parser.add_argument('-rf', '--reward_food', action='store_true', help='Reward on food')
@@ -140,21 +196,18 @@ if __name__ == "__main__":
         reward_string += 'temp,'
     if args.reward_food:
         reward_string += 'food,'
+    if args.reward_eggs:
+        reward_string += 'eggs,'
+    if args.reward_hunger:
+        reward_string += 'hunger,'
 
     # env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
-    env = WormWorldEnv(enable_render=args.show,world_size=(32,32),world_view_size=(1024,1024),reward_plan=reward_string)
-    pid = env.add_odor_source(source_pos=(14,14),death_rate=0.01,diffusion_scale=2,emit_rate=0)
-    # pid = env.add_odor_source(source_pos=(20,18),death_rate=0.01,diffusion_scale=1,emit_rate=1,plume_id=pid)
-    # pid = env.add_circular_odor_source(source_pos=(20,18),plume_id=pid,radius=4,emit_rate=0.1)
-    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,18),source_bottomright=(24,20),emit_rate=0.1)
-    env.add_vis_layer(layer_type='odor',pid=pid)
-    env.set_odor_source_type(source_type='food',pid=pid)
+    env = create_simple_environment(reward=reward_string)
 
 
 
     # (self,temp_id=None,source_pos=(0,0),fix_x=None,fix_y=None,tau=1,peak=25,trough=18)
-    tid = env.add_temp_gradient(source_pos=(14,14),fix_x=14,fix_y=None,tau=1,peak=22,trough=18)
-    env.set_agent_temp(mean_temp=18)
+    
     # env.add_vis_layer(layer_type='temp',pid=tid)
 
     env.fix_environment() # save the environment for when we need to reset it
@@ -167,7 +220,12 @@ if __name__ == "__main__":
     done = False
     batch_size = 32
 
-    EPISODES = 20
+    if args.simulate:
+        EPISODES = 1
+    else:
+        EPISODES = 20
+
+
     # http://pymedia.org/tut/src/make_video.py.html
     for e in range(EPISODES):
         state = env.reset()
@@ -181,16 +239,20 @@ if __name__ == "__main__":
             agent.remember(state, action, reward, next_state, done)
             state = next_state
 
-            if done:
+            if done and not args.simulate:
                 print('episode: ' + str(e) + '/' + str(EPISODES) + ', score: ' + str(tt) + ', e: ' + str(agent.epsilon))
                 break
 
-            if len(agent.memory) > batch_size:
+            if len(agent.memory) > batch_size and not args.simulate:
 
                 loss = agent.replay(batch_size)
                 if tt % 10 == 0:
                     print('episode: ' + str(e) + '/' + str(EPISODES) + ', time: ' + str(tt) + ', loss: ' + str(loss))
 
-        agent.save_model(dir_name=args.dir)
+        if not args.simulate:
+            agent.save_model(dir_name=args.dir)
+        else:
+            agent.save_memory(dir_name=args.dir)
+
 
 

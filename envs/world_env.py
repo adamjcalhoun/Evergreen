@@ -8,14 +8,16 @@ from gym.utils import seeding
 from envs.world_view_2d import WorldView2D
 
 class WormWorldEnv(gym.Env):
-    metadata = {
-        "render.modes": ["human", "rgb_array"],
-    }
+    # metadata = {
+    #     "render.modes": ["human", "rgb_array"],
+    # }
 
     # https://stackoverflow.com/questions/44404281/openai-gym-understanding-action-space-notation-spaces-box
     ACTION = ['forward','backward','left','right']
+    # additional action: stay, lay eggs?
 
-    def __init__(self, world_file=None, world_size=(512,512), world_view_size=None, enable_render=False, reward_plan=''):
+    def __init__(self, world_file=None, world_size=(512,512), world_view_size=None, enable_render=False, reward_plan='', /
+        hunger=False, lay_eggs=False):
 
         self.viewer = None
         self.enable_render = enable_render
@@ -24,11 +26,16 @@ class WormWorldEnv(gym.Env):
         self.position = None
         self.hunger = 0
         self.hunger_step = 0.01 # these need to be passable parameters
+        self.max_hunger = 1
         self.odor_history_length = 10
         self.odor_history = np.zeros(self.odor_history_length)
 
         self.temp_history_length = 10
         self.temp_history = np.zeros(self.temp_history_length)
+
+        self.has_hunger = True
+
+        self.eggs = []
 
         self.reward_plan = np.zeros((4,))
         for reward_name in reward_plan.split(','):
@@ -40,7 +47,7 @@ class WormWorldEnv(gym.Env):
                 self.reward_plan[2] = 1
 
         # need to fix this...
-        self.observation_space = spaces.Box(np.zeros(self.odor_history_length + self.temp_history_length,),np.ones(self.odor_history_length + self.temp_history_length,))
+        self.observation_space = spaces.Box(np.zeros(self.odor_history_length + self.temp_history_length + self.has_hunger,),np.ones(self.odor_history_length + self.temp_history_length + self.has_hunger,))
         self.action_space = spaces.Discrete(4)
 
         self.__world = World(world_size=world_size)
@@ -88,6 +95,10 @@ class WormWorldEnv(gym.Env):
 
         self.update_history(newstate)
 
+        if self.has_hunger:
+            self.hunger -= self.hunger_step + newstate[2]
+            self.hunger = min(hunger,self.max_hunger)
+
         reward = 0
         if self.reward_plan[0] == 1:
             reward += np.exp(newstate[0])
@@ -98,6 +109,13 @@ class WormWorldEnv(gym.Env):
 
         if self.reward_plan[2] == 1:
             reward += newstate[2]   # reward for eating food
+
+            # will need to control for whether the hunger variable can be indicative of food even in the absence
+            # of eating/internal hunger:
+            # so don't always reward it
+            if self.has_hunger:
+                if self.hunger < 0:
+                    reward += self.hunger
 
         # if np.array_equal(self.worm_view.robot, self.worm_view.goal):
         #     reward = 1
@@ -112,6 +130,8 @@ class WormWorldEnv(gym.Env):
 
         # print(np.append(self.odor_history,self.temp_history))
         self.state = list(np.append(self.odor_history,self.temp_history))
+        if self.has_hunger:
+            self.state.append(self.hunger)
         # print(len(self.state))
 
         info = {}
@@ -278,14 +298,20 @@ class World:
                 location[1] = self.world_size[1]-1
             self.agent.set_location(location)
 
+        if action == 'lay_egg':
+            # cost to lay egg that is rewarded based on food near animal at timestep t+T
+            pass
+
         state = []
         amt_decay =0
         (x,y) = self.agent.get_location()
         for odor_num,odor in enumerate(self.odor_sources):
             state.append(odor.get_odor_value(x,y))
+            # if xxxxx contains 'animal'
             if self.get_odor_source_type(pid=odor_num) == 'food':
                 # state.append(odor.get_odor_emit(x=x,y=y))
                 amt_decay += odor.decay_plume(x=x,y=y,decay_amount=1)
+
             odor.consume_plume(x=x,y=y)
 
         for temp_num,temp in enumerate(self.temp_layers):

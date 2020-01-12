@@ -36,35 +36,20 @@
 
 # has anyone shown a neural network or RL trained to move and to get reward based on food will perform chemotaxis?
 
-# what do we want to train the agent on?
-env = WormWorldEnv(enable_render=True,world_size=(32,32))
-# 1 odor plume
+# other resources: CO2, O2
 
-# should I add some generator for generating the environment?
-env.add_odor_source(source_loc=(14,14))
 
-# 5 odor plumes
-for n in list(range(5)):
-	env.add_odor_source(source_loc=(int(np.random.random(1)*32),int(np.random.random(1)*32)))
-
-# 2 odor plumes, one decays through time
-env.add_odor_source(source_loc=(14,14))
-env.add_odor_source(source_loc=(14,14),decay_rate=0.1)
-
-# temperature (wrong temp = negative utility)
-env.add_temp_gradient(source_loc=(14,14))
-
-# temperature + odor source
-env.add_temp_gradient(source_loc=(14,14))
-env.add_odor_source(source_loc=(18,14))
-
-# odor plumes associated with food: only reward on food
-env.add_odor_source(source_loc=(18,14),odor_type='food')
-env.add_odor_circle(source_loc=(18,14),odor_type='food')
-
-# odor plumes associated with disease: negative reward on reaching the peak
-env.add_odor_source(source_loc=(18,14),odor_type='food')
-env.add_odor_source(source_loc=(14,14),odor_type='disease')
+########
+# Order of things to add:
+# - [x] Large environment (train [ ])
+# - [x] Internal hunger for agent (train [ ])
+# - [ ] Ability to lay eggs/get reward from this (train [ ])
+# - [ ] Olfactory odors from agents (train with multiple agents [ ])
+# - [ ] LSTM networks
+# - [ ] Ability to control odors from agents (train [ ])
+# - [ ] Ability to predate on other agents (train [ ])
+# - [ ] Add cost for movement
+########
 
 # multi-agent
 # each agent releases odor plumes
@@ -102,7 +87,7 @@ env.add_odor_source(source_loc=(14,14),odor_type='disease')
 # but I have not yet tested that (add a line in the code that says '@tf.function')
 conda create -n evergreen python=3
 conda activate evergreen
-conda install numpy tensorflow-gpu=1.15 git
+conda install numpy tensorflow-gpu=1.15 git h5py
 pip install gym
 pip install pygame
 git clone https://github.com/adamjcalhoun/Evergreen.git
