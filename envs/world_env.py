@@ -24,18 +24,18 @@ class WormWorldEnv(gym.Env):
         self.__vis_layers = []
         self.game_over = False
         self.position = None
-        self.hunger = 0
+        self.hunger = [0]
         self.hunger_step = 0.01 # these need to be passable parameters
         self.max_hunger = 1
         self.odor_history_length = 10
-        self.odor_history = np.zeros(self.odor_history_length)
+        self.odor_history = [np.zeros(self.odor_history_length)]
 
         self.temp_history_length = 10
-        self.temp_history = np.zeros(self.temp_history_length)
+        self.temp_history = [np.zeros(self.temp_history_length)]
 
         self.has_hunger = True
 
-        self.eggs = []
+        self.eggs = [[]]
         self.egg_delay = 5
         self.egg_reward_per_food = 1
         self.egg_reward_radius = 5
@@ -56,8 +56,8 @@ class WormWorldEnv(gym.Env):
         self.action_space = spaces.Discrete(4)
 
         self.__world = World(world_size=world_size)
-        self.__world.add_agent(location=[10,10])
         self.__world_size = world_size
+        self.__world.add_agent(location=[int(np.random.random(1)*self.__world_size[0]-1),int(np.random.random(1)*self.__world_size[1]-1)])
 
         self.__num_agents = 1
         self.__curr_agent = 0
@@ -95,20 +95,12 @@ class WormWorldEnv(gym.Env):
         else:
             newstate = self.__world.agent_action(self.ACTION[action],agent_num=self.__curr_agent)
 
-        self.__curr_agent += 1
-        if self.__curr_agent == self.__num_agents:
-            self.__world.step()
-            if self.enable_render:
-                viewlayers = [self.__world.get_env_values(layer_type=layer[0],pid=layer[1]) for layer in self.__vis_layers]
-
-                self.viewer.view_update(agent=self.__world.get_agent_location(),viewlayers=viewlayers,agent_angle=self.__world.agent.get_angled())
-
         self.update_history(newstate)
 
         if self.has_hunger:
             # don't get reward if sated?
-            self.hunger -= self.hunger_step + newstate[2]
-            self.hunger = min(hunger,self.max_hunger)
+            self.hunger[self.__curr_agent] -= self.hunger_step + newstate[2]
+            self.hunger[self.__curr_agent] = min(self.hunger[self.__curr_agent],self.max_hunger)
 
         reward = 0
         if self.reward_plan[0] == 1:
@@ -126,7 +118,7 @@ class WormWorldEnv(gym.Env):
             # so don't always reward it
             if self.has_hunger:
                 if self.hunger < 0:
-                    reward += self.hunger
+                    reward += self.hunger[self.__curr_agent]
 
         # # for laying eggs
         # if self.reward_plan[3] == 1:
@@ -150,12 +142,21 @@ class WormWorldEnv(gym.Env):
         # print('newstate: ' + str(newstate) + ' ... reward: ' + str(reward))
 
         # print(np.append(self.odor_history,self.temp_history))
-        self.state = list(np.append(self.odor_history,self.temp_history))
+        self.state = list(np.append(self.odor_history[self.__curr_agent],self.temp_history[self.__curr_agent]))
         if self.has_hunger:
             self.state.append(self.hunger)
         # print(len(self.state))
 
         info = {}
+
+        self.__curr_agent += 1
+        if self.__curr_agent == self.__num_agents:
+            self.__curr_agent = 0
+            self.__world.step()
+            if self.enable_render:
+                viewlayers = [self.__world.get_env_values(layer_type=layer[0],pid=layer[1]) for layer in self.__vis_layers]
+
+                self.viewer.view_update(agent=self.__world.get_agent_location(),viewlayers=viewlayers,agent_angle=self.__world.agent.get_angled())
 
         return self.state, reward, done, info
 
@@ -179,10 +180,10 @@ class WormWorldEnv(gym.Env):
         return self.__world.add_temp_gradient(temp_id=temp_id,source_pos=source_pos,fix_x=fix_x,fix_y=fix_y,tau=tau,peak=peak,trough=trough)
 
     def update_history(self,newstate):
-        self.odor_history[1:] = self.odor_history[:-1]
-        self.odor_history[0] = newstate[0]
-        self.temp_history[1:] = self.temp_history[:-1]
-        self.temp_history[0] = newstate[1]
+        self.odor_history[self.__curr_agent][1:] = self.odor_history[self.__curr_agent][:-1]
+        self.odor_history[self.__curr_agent][0] = newstate[0]
+        self.temp_history[self.__curr_agent][1:] = self.temp_history[self.__curr_agent][:-1]
+        self.temp_history[self.__curr_agent][0] = newstate[1]
 
     def reset(self):
         # self.maze_view.reset_robot()
@@ -205,13 +206,16 @@ class WormWorldEnv(gym.Env):
         if num_agents > self.__num_agents:
             for ii in range(num_agents - self.__num_agents):
                 self.__world.add_agent()
+                self.temp_history.append(np.zeros(self.temp_history_length))
+                self.odor_history.append(np.zeros(self.odor_history_length))
+                self.hunger.append(0)
         # else:
         #     self.__world.agents
 
         self.__num_agents = num_agents
 
         self.observation_space = spaces.Box(np.zeros((self.odor_history_length + self.temp_history_length + self.has_hunger,)),np.ones((self.odor_history_length + self.temp_history_length + self.has_hunger)))
-        self.action_space = spaces.Discrete((self.__num_agents,4))
+        self.action_space = spaces.Discrete((4))
 
     def fix_environment(self):
         print('saved!')
@@ -236,7 +240,7 @@ class World:
         self.odor_type = []
         self.temp_layers = []
         self.agent = []
-
+        self.__agent_odor_pid = -1
 
         # maze's configuration parameters
         if not (isinstance(world_size, (list, tuple)) and len(world_size) == 2):
@@ -260,7 +264,7 @@ class World:
 
             self.odor_sources.append(plume)
 
-    def add_odor_source(self,source_pos=(0,0),death_rate=0,diffusion_scale=0,emit_rate=0,plume_id=None):
+    def add_odor_source(self,source_pos=(0,0),death_rate=0,diffusion_scale=0,emit_rate=0,plume_id=None,source_agent=None):
         if plume_id is None:
             plume_id = len(self.odor_sources)
             plume = OdorPlume(world_size=self.world_size,plume_id=plume_id,death_rate=death_rate,diffusion_scale=diffusion_scale)
@@ -269,7 +273,7 @@ class World:
         else:
             plume = self.odor_sources[plume_id]
 
-        plume.add_source(source_pos=source_pos,emit_rate=emit_rate)
+        plume.add_source(source_pos=source_pos,emit_rate=emit_rate,source_agent=source_agent)
 
         return plume_id
 
@@ -306,16 +310,18 @@ class World:
         else:
             self.agent.append(Agent(location=location))
 
-    def agent_action(self,action=None):
+        self.__agent_odor_pid = self.add_odor_source(death_rate=0.001,diffusion_scale=1,emit_rate=.01,source_agent=self.agent[-1])
+
+    def agent_action(self,action=None,agent_num=0):
         if action == 'left':
-            self.agent.rotate(np.pi/2)
+            self.agent[agent_num].rotate(np.pi/2)
         elif action == 'right':
-            self.agent.rotate(-np.pi/2)
+            self.agent[agent_num].rotate(-np.pi/2)
 
         if action == 'forward' or action == 'left' or action == 'right':
-            self.agent.move(forward_backward=1)
+            self.agent[agent_num].move(forward_backward=1)
             # check for edge effects
-            location = self.agent.get_location()
+            location = self.agent[agent_num].get_location()
             if location[0] >= self.world_size[0]:
                 location[0] = 0
             if location[1] >= self.world_size[1]:
@@ -324,11 +330,11 @@ class World:
                 location[0] = self.world_size[0]-1
             if location[1] < 0:
                 location[1] = self.world_size[1]-1
-            self.agent.set_location(location)
+            self.agent[agent_num].set_location(location)
 
         elif action == 'backward':
-            self.agent.move(forward_backward=-1)
-            location = self.agent.get_location()
+            self.agent[agent_num].move(forward_backward=-1)
+            location = self.agent[agent_num].get_location()
             if location[0] >= self.world_size[0]:
                 location[0] = 0
             if location[1] >= self.world_size[1]:
@@ -337,16 +343,16 @@ class World:
                 location[0] = self.world_size[0]-1
             if location[1] < 0:
                 location[1] = self.world_size[1]-1
-            self.agent.set_location(location)
+            self.agent[agent_num].set_location(location)
 
         if action == 'lay_egg':
             # cost to lay egg that is rewarded based on food near animal at timestep t+T
-            self.eggs.append([self.agent.get_location(),self.egg_delay])
+            self.eggs[agent_num].append([self.agent[agent_num].get_location(),self.egg_delay])
 
 
         state = []
         amt_decay =0
-        (x,y) = self.agent.get_location()
+        (x,y) = self.agent[agent_num].get_location()
         for odor_num,odor in enumerate(self.odor_sources):
             state.append(odor.get_odor_value(x,y))
             # if xxxxx contains 'animal'
@@ -394,7 +400,7 @@ class World:
         for odor in self.odor_sources:
             odor.step()
 
-        self.agent.step()
+        # self.agent[self.__curr_agent].step()
 
     @property
     def WORLD_W(self):
@@ -470,6 +476,7 @@ class OdorPlume:
 
 
     def add_source(self,source_pos=None,emit_rate=None, source_agent=None):
+        print('source added! ' + str(emit_rate) + ' ' + str(source_pos) + ' ' + str(source_agent))
         if (source_pos is None and source_agent is None) or (source_pos is not None and source_agent is not None):
             print('error! please specify either the source position or the agent, but not both')
             return None
@@ -488,6 +495,7 @@ class OdorPlume:
 
 
     def add_circular_source(self,source_pos=None,radius=None,emit_rate=None):
+        print('circular source!')
         x = np.arange(0,self.world_size[0])
         y = np.arange(0,self.world_size[1])
         xx,yy = np.meshgrid(x,y)
@@ -502,6 +510,7 @@ class OdorPlume:
         self.num_sources += np.sum(circle)
 
     def add_square_source(self,source_topleft=None,source_bottomright=None,emit_rate=None):
+        print('square source!')
         square = np.zeros((self.world_size))
         square[source_topleft[0]:source_bottomright[0],source_topleft[1]:source_bottomright[1]] = 1
 
@@ -516,14 +525,15 @@ class OdorPlume:
         return self.plume_id
 
     def step(self):
-        if self.source_agent is not None:
+        if self.source_agent != []:
             self.source_pos = [agent.get_pos for agent in self.source_agent]
 
         world_diffusion = np.random.random([self.world_size[0],self.world_size[1],4])
         world_diffusion /= np.tile(np.expand_dims(np.sum(world_diffusion,axis=2),axis=-1),(1,1,4))
 
         # probably a more pythonic way to do this...
-        for snum in list(range(self.num_sources)):
+        print((self.odor.shape,len(self.source_pos),len(self.emit_rate)))
+        for snum in range(self.num_sources):
             self.odor[self.source_pos[snum][0],self.source_pos[snum][1]] += self.emit_rate[snum]
 
         # assume everything moves diffusion_scale steps in cardinal directions (for simplicity)

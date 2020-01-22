@@ -207,7 +207,7 @@ if __name__ == "__main__":
 
     # env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
     env = create_simple_environment(reward=reward_string)
-    env.set_num_agents(num_agents=5)
+    # env.set_num_agents(num_agents=5)
 
 
 
