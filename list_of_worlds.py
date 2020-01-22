@@ -43,9 +43,13 @@
 # Order of things to add:
 # - [x] Large environment (train [ ])
 # - [x] Internal hunger for agent (train [ ])
-# - [ ] Ability to lay eggs/get reward from this (train [ ])
-# - [ ] Olfactory odors from agents (train with multiple agents [ ])
+# - [x] Ability to lay eggs/get reward from this (train [ ])
+# - [ ] Ability to use multiple agents in the environment
+# -> Need to convert all hunger etc into lists...
+# - [x] Olfactory odors from agents (train with multiple agents [ ])
 # - [ ] LSTM networks
+# -> http://digital-thinking.de/keras-returning-hidden-state-in-rnns/
+# -> https://github.com/omerbsezer/LSTM_RNN_Tutorials_with_Demo
 # - [ ] Ability to control odors from agents (train [ ])
 # - [ ] Ability to predate on other agents (train [ ])
 # - [ ] Add cost for movement
@@ -75,6 +79,9 @@
 # what do we want to examine?
 # emergence of behaviors through training (do we first get hill-climbing, then eventually they learn to leave (forage) for new patches?)
 # the computations the animals are performing
+# what happens in networks as you bottleneck neurons (what are the representations)
+# find examples of basic olfactory/etc behaviors in animals that we can find in these networks (a la DeepRetina)
+# how do these change when in a social environment vs an isolated one?
 
 # better training:
 # use keras-rl? 

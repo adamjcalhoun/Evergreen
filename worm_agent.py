@@ -18,6 +18,7 @@ import pickle
 # For training the agent:
 # https://www.digitalocean.com/community/tutorials/how-to-build-atari-bot-with-openai-gym
 
+# Multi-agent: https://github.com/openai/multiagent-particle-envs/blob/master/multiagent/environment.py
 
 # add in hierachical RL?
 # https://towardsdatascience.com/advanced-reinforcement-learning-6d769f529eb3
@@ -189,7 +190,7 @@ if __name__ == "__main__":
     parser.add_argument('-rt', '--reward_temp', action='store_true', help='Reward on temp')
     parser.add_argument('-rf', '--reward_food', action='store_true', help='Reward on food')
     parser.add_argument('-re', '--reward_eggs', action='store_true', help='Reward for egg laying')
-    parser.add_argument('-ih', '--internal_hunger', action='store_true', help='Have an internal hunger variable (add to state)')
+    parser.add_argument('-ih', '--reward_hunger', action='store_true', help='Have an internal hunger variable (add to state)')
     args = parser.parse_args()
 
     reward_string = ''
@@ -206,6 +207,7 @@ if __name__ == "__main__":
 
     # env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
     env = create_simple_environment(reward=reward_string)
+    env.set_num_agents(num_agents=5)
 
 
 

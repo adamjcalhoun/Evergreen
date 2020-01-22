@@ -16,7 +16,7 @@ class WormWorldEnv(gym.Env):
     ACTION = ['forward','backward','left','right']
     # additional action: stay, lay eggs?
 
-    def __init__(self, world_file=None, world_size=(512,512), world_view_size=None, enable_render=False, reward_plan='', /
+    def __init__(self, world_file=None, world_size=(512,512), world_view_size=None, enable_render=False, reward_plan='', 
         hunger=False, lay_eggs=False):
 
         self.viewer = None
@@ -57,13 +57,16 @@ class WormWorldEnv(gym.Env):
 
         self.__world = World(world_size=world_size)
         self.__world.add_agent(location=[10,10])
+        self.__world_size = world_size
+
+        self.__num_agents = 1
+        self.__curr_agent = 0
 
         self.__world_save = None
 
         # initial condition
         self.state = None
         self.steps_beyond_done = None
-        self.world = np.zeros(world_size)
 
         # Simulation related variables.
         self.seed()
@@ -88,19 +91,22 @@ class WormWorldEnv(gym.Env):
 
     def step(self, action):
         if isinstance(action, str):
-            newstate = self.__world.agent_action(action)
+            newstate = self.__world.agent_action(action,agent_num=self.__curr_agent)
         else:
-            newstate = self.__world.agent_action(self.ACTION[action])
+            newstate = self.__world.agent_action(self.ACTION[action],agent_num=self.__curr_agent)
 
-        self.__world.step()
-        if self.enable_render:
-            viewlayers = [self.__world.get_env_values(layer_type=layer[0],pid=layer[1]) for layer in self.__vis_layers]
+        self.__curr_agent += 1
+        if self.__curr_agent == self.__num_agents:
+            self.__world.step()
+            if self.enable_render:
+                viewlayers = [self.__world.get_env_values(layer_type=layer[0],pid=layer[1]) for layer in self.__vis_layers]
 
-            self.viewer.view_update(agent=self.__world.get_agent_location(),viewlayers=viewlayers,agent_angle=self.__world.agent.get_angled())
+                self.viewer.view_update(agent=self.__world.get_agent_location(),viewlayers=viewlayers,agent_angle=self.__world.agent.get_angled())
 
         self.update_history(newstate)
 
         if self.has_hunger:
+            # don't get reward if sated?
             self.hunger -= self.hunger_step + newstate[2]
             self.hunger = min(hunger,self.max_hunger)
 
@@ -166,7 +172,8 @@ class WormWorldEnv(gym.Env):
         self.__world.set_odor_source_type(source_type=source_type,pid=pid)
 
     def set_agent_temp(self,mean_temp=20):
-        self.__world.agent.set_agent_temp(mean_temp=mean_temp)
+        for ii in range(self.__num_agents):
+            self.__world.agent[ii].set_agent_temp(mean_temp=mean_temp)
 
     def add_temp_gradient(self,temp_id=None,source_pos=(0,0),fix_x=None,fix_y=None,tau=1,peak=25,trough=18):
         return self.__world.add_temp_gradient(temp_id=temp_id,source_pos=source_pos,fix_x=fix_x,fix_y=fix_y,tau=tau,peak=peak,trough=trough)
@@ -184,11 +191,27 @@ class WormWorldEnv(gym.Env):
         if self.__world_save is not None:
             self.__world = self.__world_save
 
-        self.__world.set_agent_location([10,10])
+        for ii in range(self.__num_agents):
+            self.__world.set_agent_location([int(np.random.random(1)*self.__world_size[0]-1),int(np.random.random(1)*self.__world_size[1]-1)],agent_num=ii)
+
         self.state = np.zeros(self.odor_history_length+self.temp_history_length,)
         self.steps_beyond_done = None
         self.done = False
         return self.state
+
+    def set_num_agents(self,num_agents=1):
+        # add the appropriate number of agents
+
+        if num_agents > self.__num_agents:
+            for ii in range(num_agents - self.__num_agents):
+                self.__world.add_agent()
+        # else:
+        #     self.__world.agents
+
+        self.__num_agents = num_agents
+
+        self.observation_space = spaces.Box(np.zeros((self.odor_history_length + self.temp_history_length + self.has_hunger,)),np.ones((self.odor_history_length + self.temp_history_length + self.has_hunger)))
+        self.action_space = spaces.Discrete((self.__num_agents,4))
 
     def fix_environment(self):
         print('saved!')
@@ -212,7 +235,7 @@ class World:
         self.odor_sources = []
         self.odor_type = []
         self.temp_layers = []
-        self.agent = None
+        self.agent = []
 
 
         # maze's configuration parameters
@@ -277,8 +300,11 @@ class World:
         return temp_id
 
     def add_agent(self,location=None):
+        # if location is None location is random
         if self.agent is None:
-            self.agent = Agent(location=location)
+            self.agent.append(Agent(location=location))
+        else:
+            self.agent.append(Agent(location=location))
 
     def agent_action(self,action=None):
         if action == 'left':
@@ -340,8 +366,8 @@ class World:
     def get_agent_location(self):
         return self.agent.get_location()
 
-    def set_agent_location(self,location):
-        return self.agent.set_location(location)
+    def set_agent_location(self,location,agent_num=0):
+        return self.agent[agent_num].set_location(location)
 
     def get_odor_plumes(self):
         return self.odor_sources
