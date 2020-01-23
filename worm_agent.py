@@ -127,7 +127,8 @@ class WormAgent:
             # print('!!!!')
 
             if not done:
-                target = reward + self.gamma * np.amax(self.model.predict(np.expand_dims(next_state,axis=0))[0])
+                print(len(next_state))
+                target = reward + self.gamma * np.amax(self.model.predict(np.expand_dims(np.array(next_state),axis=0))[0])
             # print('target time: ' + str(time() - t))
 
             target_f = self.model.predict(np.expand_dims(state,axis=0))
@@ -185,7 +186,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='worm_agent')
     parser.add_argument('-s', '--show', action='store_true', help='Show pygame visualization')
     parser.add_argument('-d', '--dir', type=str, help='Choose where to save data to')
-    parser.add_argument('--simulate', type=str, help='Simulate only')
+    parser.add_argument('--simulate', help='Simulate only', action='store_true')
     parser.add_argument('-ro', '--reward_odor', action='store_true', help='Reward on odor')
     parser.add_argument('-rt', '--reward_temp', action='store_true', help='Reward on temp')
     parser.add_argument('-rf', '--reward_food', action='store_true', help='Reward on food')
@@ -206,9 +207,11 @@ if __name__ == "__main__":
         reward_string += 'hunger,'
 
     # env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
-    env = create_simple_environment(reward=reward_string)
-    # env.set_num_agents(num_agents=5)
-
+    # env = create_simple_environment(reward=reward_string)
+    # might need to make the patches closer in space
+    env = create_large_environment(reward=reward_string)
+    pid = env.set_num_agents(num_agents=5)
+    env.add_vis_layer(layer_type='odor',pid=pid)
 
 
     # (self,temp_id=None,source_pos=(0,0),fix_x=None,fix_y=None,tau=1,peak=25,trough=18)

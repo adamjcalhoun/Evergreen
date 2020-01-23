@@ -71,13 +71,16 @@ class WorldView2D:
             self.screen.blit(self.__world_layer_surf,(0, 0))
 
             if agent is not None:
-                # self.__worm = agent
-                self.__worm[0] = agent[0]
-                self.__worm[1] = agent[1]
-                self.__worm[0] *= self.__view_scale[0]
-                self.__worm[1] *= self.__view_scale[1]
-                # print('scaled! scaled!')
-                self.__draw_worm(angle=agent_angle)
+                if not isinstance(agent,list):
+                    agent = [agent]
+                    agent_angle = [agent_angle]
+
+                for ag,ag_ang in zip(agent,agent_angle):
+                    self.__worm[0] = ag[0]
+                    self.__worm[1] = ag[1]
+                    self.__worm[0] *= self.__view_scale[0]
+                    self.__worm[1] *= self.__view_scale[1]
+                    self.__draw_worm(angle=ag_ang)
 
             pygame.display.flip()
             # print('view_update took ' + str(time() - t))

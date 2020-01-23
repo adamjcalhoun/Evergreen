@@ -156,7 +156,7 @@ class WormWorldEnv(gym.Env):
             if self.enable_render:
                 viewlayers = [self.__world.get_env_values(layer_type=layer[0],pid=layer[1]) for layer in self.__vis_layers]
 
-                self.viewer.view_update(agent=self.__world.get_agent_location(),viewlayers=viewlayers,agent_angle=self.__world.agent.get_angled())
+                self.viewer.view_update(agent=self.__world.get_agent_location(),viewlayers=viewlayers,agent_angle=[agent.get_angled() for agent in self.__world.agent])
 
         return self.state, reward, done, info
 
@@ -217,6 +217,8 @@ class WormWorldEnv(gym.Env):
         self.observation_space = spaces.Box(np.zeros((self.odor_history_length + self.temp_history_length + self.has_hunger,)),np.ones((self.odor_history_length + self.temp_history_length + self.has_hunger)))
         self.action_space = spaces.Discrete((4))
 
+        return self.get_agent_odor_pid()
+
     def fix_environment(self):
         print('saved!')
         self.__world_save = copy.deepcopy(self.__world)
@@ -229,6 +231,9 @@ class WormWorldEnv(gym.Env):
     def add_vis_layer(self,layer_type='none',pid=-1):
         if layer_type == 'odor' or layer_type == 'temp':
             self.__vis_layers.append((layer_type,pid))
+
+    def get_agent_odor_pid(self):
+        return self.__world.get_agent_odor_pid()
 
 
 class World:
@@ -264,8 +269,11 @@ class World:
 
             self.odor_sources.append(plume)
 
-    def add_odor_source(self,source_pos=(0,0),death_rate=0,diffusion_scale=0,emit_rate=0,plume_id=None,source_agent=None):
-        if plume_id is None:
+    def get_agent_odor_pid(self):
+        return self.__agent_odor_pid
+
+    def add_odor_source(self,source_pos=None,death_rate=0,diffusion_scale=0,emit_rate=0,plume_id=None,source_agent=None):
+        if plume_id is None or plume_id < 0:
             plume_id = len(self.odor_sources)
             plume = OdorPlume(world_size=self.world_size,plume_id=plume_id,death_rate=death_rate,diffusion_scale=diffusion_scale)
             self.odor_type.append('none')
@@ -310,7 +318,7 @@ class World:
         else:
             self.agent.append(Agent(location=location))
 
-        self.__agent_odor_pid = self.add_odor_source(death_rate=0.001,diffusion_scale=1,emit_rate=.01,source_agent=self.agent[-1])
+        self.__agent_odor_pid = self.add_odor_source(death_rate=0.001,diffusion_scale=1,emit_rate=.01,source_agent=self.agent[-1],plume_id=self.__agent_odor_pid)
 
     def agent_action(self,action=None,agent_num=0):
         if action == 'left':
@@ -370,7 +378,7 @@ class World:
         return state
 
     def get_agent_location(self):
-        return self.agent.get_location()
+        return [agent.get_location() for agent in self.agent]
 
     def set_agent_location(self,location,agent_num=0):
         return self.agent[agent_num].set_location(location)
@@ -526,13 +534,13 @@ class OdorPlume:
 
     def step(self):
         if self.source_agent != []:
-            self.source_pos = [agent.get_pos for agent in self.source_agent]
+            self.source_pos = [agent.get_location() for agent in self.source_agent]
 
         world_diffusion = np.random.random([self.world_size[0],self.world_size[1],4])
         world_diffusion /= np.tile(np.expand_dims(np.sum(world_diffusion,axis=2),axis=-1),(1,1,4))
 
         # probably a more pythonic way to do this...
-        print((self.odor.shape,len(self.source_pos),len(self.emit_rate)))
+        # print((self.odor.shape,len(self.source_pos),len(self.emit_rate)))
         for snum in range(self.num_sources):
             self.odor[self.source_pos[snum][0],self.source_pos[snum][1]] += self.emit_rate[snum]
 
