@@ -37,6 +37,8 @@
 # has anyone shown a neural network or RL trained to move and to get reward based on food will perform chemotaxis?
 
 # other resources: CO2, O2
+# other internal needs: protein, sugars, salts, etc
+# day/night or other environmental oscillations
 
 
 ########
@@ -44,7 +46,7 @@
 # - [x] Large environment (train [ ])
 # - [x] Internal hunger for agent (train [ ])
 # - [x] Ability to lay eggs/get reward from this (train [ ])
-# - [ ] Ability to use multiple agents in the environment
+# - [x] Ability to use multiple agents in the environment
 # -> Need to convert all hunger etc into lists...
 # - [x] Olfactory odors from agents (train with multiple agents [ ])
 # - [ ] LSTM networks
