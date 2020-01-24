@@ -11,13 +11,18 @@ from time import time
 
 class WorldView2D:
 
-    def __init__(self, world_name="World2D", world_size=(512, 512), world_view_size=None):
+    def __init__(self, world_name="World2D", world_size=(512, 512), world_view_size=None,make_video=False):
 
+        make_video=True
         # PyGame configurations
         pygame.init()
         pygame.display.set_caption(world_name)
         self.clock = pygame.time.Clock()
         self.__game_over = False
+
+        self.__make_video = make_video
+        if self.__make_video:
+            self.__frame_ind = 0
 
         # to show the right and bottom border
         self.screen = pygame.display.set_mode(world_view_size)
@@ -83,6 +88,10 @@ class WorldView2D:
                     self.__draw_worm(angle=ag_ang)
 
             pygame.display.flip()
+            if self.__make_video:
+                pygame.image.save(self.screen,'imgs/img%06d.png' % self.__frame_ind)
+                self.__frame_ind += 1
+                # ffmpeg -f image2 -i /Users/adamjc/Dropbox/GitHub/Evergreen/imgs/img%6d.png -vcodec libx264 -filter:v fps=fps=30 /Users/adamjc/Dropbox/GitHub/Evergreen/imgs/out.mp4
             # print('view_update took ' + str(time() - t))
 
     def __draw_world(self,viewlayers=None):
