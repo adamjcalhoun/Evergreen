@@ -127,10 +127,14 @@ class WormAgent:
             # print('!!!!')
 
             if not done:
-                print(len(next_state))
+                # print(next_state)
+                # print(len(next_state))
                 target = reward + self.gamma * np.amax(self.model.predict(np.expand_dims(np.array(next_state),axis=0))[0])
             # print('target time: ' + str(time() - t))
 
+            # print('?')
+            # print(state)
+            # print(len(state))
             target_f = self.model.predict(np.expand_dims(state,axis=0))
             # print(target)
             # print(action)
@@ -158,10 +162,28 @@ def create_simple_environment(reward=''):
     env.add_vis_layer(layer_type='odor',pid=pid)
     env.set_odor_source_type(source_type='food',pid=pid)
 
-    tid = env.add_temp_gradient(source_pos=(14,14),fix_x=14,fix_y=None,tau=1,peak=22,trough=18)
-    env.set_agent_temp(mean_temp=18)
+    # tid = env.add_temp_gradient(source_pos=(14,14),fix_x=14,fix_y=None,tau=1,peak=22,trough=18)
+    # env.set_agent_temp(mean_temp=18)
     return env
 
+def create_two_patch_environment(reward=''):
+    env = WormWorldEnv(enable_render=args.show,world_size=(128,128),world_view_size=(1024,1024),reward_plan=reward)
+    pid = env.add_odor_source(source_pos=(14,14),death_rate=0.01,diffusion_scale=2,emit_rate=0)
+
+    # pid = env.add_odor_source(source_pos=(20,18),death_rate=0.01,diffusion_scale=1,emit_rate=1,plume_id=pid)
+    # pid = env.add_circular_odor_source(source_pos=(20,18),plume_id=pid,radius=4,emit_rate=0.1)
+
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,15),source_bottomright=(25,30),emit_rate=0.1)
+    env.add_vis_layer(layer_type='odor',pid=pid)
+    env.set_odor_source_type(source_type='food',pid=pid)
+
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(60,60),source_bottomright=(75,75),emit_rate=5)
+    # env.add_vis_layer(layer_type='odor',pid=pid)  # having two of these makes the visualization look way better...
+    env.set_odor_source_type(source_type='food',pid=pid)
+
+    # tid = env.add_temp_gradient(source_pos=(14,14),fix_x=14,fix_y=None,tau=1,peak=22,trough=18)
+    # env.set_agent_temp(mean_temp=18)
+    return env
 
 def create_large_environment(reward=''):
     # 512x512? or larger?
@@ -206,11 +228,14 @@ if __name__ == "__main__":
     if args.reward_hunger:
         reward_string += 'hunger,'
 
+    num_agents = 5
+    num_timesteps = 1000
     # env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
     # env = create_simple_environment(reward=reward_string)
+    env = create_two_patch_environment(reward=reward_string)
     # might need to make the patches closer in space
-    env = create_large_environment(reward=reward_string)
-    pid = env.set_num_agents(num_agents=5)
+    # env = create_large_environment(reward=reward_string)
+    pid = env.set_num_agents(num_agents=num_agents)
     env.add_vis_layer(layer_type='odor',pid=pid)
 
 
@@ -238,14 +263,15 @@ if __name__ == "__main__":
     for e in range(EPISODES):
         state = env.reset()
         # state = np.reshape(state, [1, state_size])
-        for tt in range(1000):
+        for tt in range(num_timesteps):
             # env.render()
             t = time()
-            action = agent.act(state)
-            next_state, reward, done, _ = env.step(action)
+            for aa in range(num_agents):
+                action = agent.act(state)
+                next_state, reward, done, _ = env.step(action)
 
-            agent.remember(state, action, reward, next_state, done)
-            state = next_state
+                agent.remember(state, action, reward, next_state, done)
+                state = next_state
 
             if done and not args.simulate:
                 print('episode: ' + str(e) + '/' + str(EPISODES) + ', score: ' + str(tt) + ', e: ' + str(agent.epsilon))

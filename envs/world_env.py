@@ -144,8 +144,7 @@ class WormWorldEnv(gym.Env):
         # print(np.append(self.odor_history,self.temp_history))
         self.state = list(np.append(self.odor_history[self.__curr_agent],self.temp_history[self.__curr_agent]))
         if self.has_hunger:
-            self.state.append(self.hunger)
-        # print(len(self.state))
+            self.state.append(self.hunger[self.__curr_agent])
 
         info = {}
 
@@ -195,7 +194,7 @@ class WormWorldEnv(gym.Env):
         for ii in range(self.__num_agents):
             self.__world.set_agent_location([int(np.random.random(1)*self.__world_size[0]-1),int(np.random.random(1)*self.__world_size[1]-1)],agent_num=ii)
 
-        self.state = np.zeros(self.odor_history_length+self.temp_history_length,)
+        self.state = np.zeros(self.odor_history_length+self.temp_history_length+self.has_hunger,)
         self.steps_beyond_done = None
         self.done = False
         return self.state
