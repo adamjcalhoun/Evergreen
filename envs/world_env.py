@@ -121,7 +121,7 @@ class WormWorldEnv(gym.Env):
             # of eating/internal hunger:
             # so don't always reward it
             if self.has_hunger:
-                if self.hunger < 0:
+                if self.hunger[self.__curr_agent] < 0:
                     reward += self.hunger[self.__curr_agent]
 
         # # for laying eggs

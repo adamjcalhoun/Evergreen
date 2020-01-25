@@ -223,8 +223,8 @@ def create_large_environment(reward=''):
     # env.set_agent_temp(mean_temp=18)
     return env
 
-# sbatch submitGeneric.sbatch -d twopatch_rfh_5/ -rf -ih -t 10000 -e 1000 -w two_patch
-# sbatch submitGeneric.sbatch -d twopatch_diffuse_rfh_5/ -rf -ih -t 10000 -e 1000 -w two_patch_diffuse
+# sbatch submitGeneric.sbatch "-d twopatch_rfh_5/ -rf -ih -a 5 -t 10000 -e 1000 -w two_patch"
+# sbatch submitGeneric.sbatch "-d twopatch_diffuse_rfh_5/ -rf -ih -a 5 -t 10000 -e 1000 -w two_patch_diffuse"
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='worm_agent')
     parser.add_argument('-s', '--show', action='store_true', help='Show pygame visualization')

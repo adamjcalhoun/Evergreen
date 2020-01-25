@@ -13,7 +13,7 @@ class WorldView2D:
 
     def __init__(self, world_name="World2D", world_size=(512, 512), world_view_size=None,make_video=False):
 
-        make_video=True
+        # make_video=True
         # PyGame configurations
         pygame.init()
         pygame.display.set_caption(world_name)
