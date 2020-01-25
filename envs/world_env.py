@@ -28,7 +28,7 @@ class WormWorldEnv(gym.Env):
         self.hunger_step = 0.01 # these need to be passable parameters
         self.max_hunger = 1
         self.odor_history_length = 10
-        self.odor_history = [np.zeros(self.odor_history_length)]
+        self.odor_history = [[np.zeros(self.odor_history_length)]]
 
         self.temp_history_length = 10
         self.temp_history = [np.zeros(self.temp_history_length)]
@@ -52,12 +52,16 @@ class WormWorldEnv(gym.Env):
                 pass
 
         # need to fix this...
-        self.observation_space = spaces.Box(np.zeros(self.odor_history_length + self.temp_history_length + self.has_hunger,),np.ones(self.odor_history_length + self.temp_history_length + self.has_hunger,))
+        self.__state_length = self.odor_history_length + self.temp_history_length + self.has_hunger
+
+        self.observation_space = spaces.Box(np.zeros(self.__state_length,),np.ones(self.__state_length,))
         self.action_space = spaces.Discrete(4)
 
         self.__world = World(world_size=world_size)
         self.__world_size = world_size
         self.__world.add_agent(location=[int(np.random.random(1)*self.__world_size[0]-1),int(np.random.random(1)*self.__world_size[1]-1)])
+
+        
 
         self.__num_agents = 1
         self.__curr_agent = 0
@@ -179,10 +183,12 @@ class WormWorldEnv(gym.Env):
         return self.__world.add_temp_gradient(temp_id=temp_id,source_pos=source_pos,fix_x=fix_x,fix_y=fix_y,tau=tau,peak=peak,trough=trough)
 
     def update_history(self,newstate):
-        self.odor_history[self.__curr_agent][1:] = self.odor_history[self.__curr_agent][:-1]
-        self.odor_history[self.__curr_agent][0] = newstate[0]
+        for odor_num in range(len(self.__world.odor_sources)):
+            self.odor_history[self.__curr_agent][odor_num][1:] = self.odor_history[self.__curr_agent][odor_num][:-1]
+            self.odor_history[self.__curr_agent][odor_num][0] = newstate[odor_num]
+
         self.temp_history[self.__curr_agent][1:] = self.temp_history[self.__curr_agent][:-1]
-        self.temp_history[self.__curr_agent][0] = newstate[1]
+        self.temp_history[self.__curr_agent][0] = newstate[len(self.__world.odor_sources)]
 
     def reset(self):
         # self.maze_view.reset_robot()
@@ -194,7 +200,7 @@ class WormWorldEnv(gym.Env):
         for ii in range(self.__num_agents):
             self.__world.set_agent_location([int(np.random.random(1)*self.__world_size[0]-1),int(np.random.random(1)*self.__world_size[1]-1)],agent_num=ii)
 
-        self.state = np.zeros(self.odor_history_length+self.temp_history_length+self.has_hunger,)
+        self.state = np.zeros(self.__state_length,)
         self.steps_beyond_done = None
         self.done = False
         return self.state
@@ -206,22 +212,29 @@ class WormWorldEnv(gym.Env):
             for ii in range(num_agents - self.__num_agents):
                 self.__world.add_agent()
                 self.temp_history.append(np.zeros(self.temp_history_length))
-                self.odor_history.append(np.zeros(self.odor_history_length))
+                self.odor_history.append([np.zeros(self.odor_history_length)])
                 self.hunger.append(0)
         # else:
         #     self.__world.agents
 
         self.__num_agents = num_agents
 
-        self.observation_space = spaces.Box(np.zeros((self.odor_history_length + self.temp_history_length + self.has_hunger,)),np.ones((self.odor_history_length + self.temp_history_length + self.has_hunger)))
+        self.observation_space = spaces.Box(np.zeros(self.__state_length,),np.ones(self.__state_length,))
         self.action_space = spaces.Discrete((4))
 
         return self.get_agent_odor_pid()
 
     def fix_environment(self):
+        for ii in range(len(self.odor_history)):
+            while len(self.odor_history[ii]) < len(self.__world.odor_sources):
+                self.odor_history[ii].append(np.zeros(self.odor_history_length))
+
+            self.__state_length = self.odor_history_length*len(self.__world.odor_sources) + self.temp_history_length + self.has_hunger
+            self.observation_space = spaces.Box(np.zeros(self.__state_length,),np.ones(self.__state_length,))
         print('saved!')
         self.__world_save = copy.deepcopy(self.__world)
         print(self.__world_save)
+
 
     def is_game_over(self):
         # return self.maze_view.game_over
