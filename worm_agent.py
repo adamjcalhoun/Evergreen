@@ -209,11 +209,18 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--show', action='store_true', help='Show pygame visualization')
     parser.add_argument('-d', '--dir', type=str, help='Choose where to save data to')
     parser.add_argument('--simulate', help='Simulate only', action='store_true')
+
     parser.add_argument('-ro', '--reward_odor', action='store_true', help='Reward on odor')
     parser.add_argument('-rt', '--reward_temp', action='store_true', help='Reward on temp')
     parser.add_argument('-rf', '--reward_food', action='store_true', help='Reward on food')
     parser.add_argument('-re', '--reward_eggs', action='store_true', help='Reward for egg laying')
     parser.add_argument('-ih', '--reward_hunger', action='store_true', help='Have an internal hunger variable (add to state)')
+
+    parser.add_argument('-a', '--num_agents', type=int, help='Number of agents to simulate', default=1)
+
+    parser.add_argument('-t', '--num_timesteps', type=int, help='Number of time steps per epoch', default=1000)
+    parser.add_argument('-e', '--epochs', type=int, help='Number of epochs', default=1)
+    
     args = parser.parse_args()
 
     reward_string = ''
@@ -228,8 +235,8 @@ if __name__ == "__main__":
     if args.reward_hunger:
         reward_string += 'hunger,'
 
-    num_agents = 5
-    num_timesteps = 1000
+    num_agents = args.num_agents
+    num_timesteps = args.num_timesteps
     # env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
     # env = create_simple_environment(reward=reward_string)
     env = create_two_patch_environment(reward=reward_string)
@@ -253,14 +260,14 @@ if __name__ == "__main__":
     done = False
     batch_size = 32
 
-    if args.simulate:
-        EPISODES = 1
-    else:
-        EPISODES = 20
+    # if args.simulate:
+    #     EPISODES = 1
+    # else:
+    #     EPISODES = 20
 
 
     # http://pymedia.org/tut/src/make_video.py.html
-    for e in range(EPISODES):
+    for e in range(args.epochs):
         state = env.reset()
         # state = np.reshape(state, [1, state_size])
         for tt in range(num_timesteps):
@@ -274,14 +281,14 @@ if __name__ == "__main__":
                 state = next_state
 
             if done and not args.simulate:
-                print('episode: ' + str(e) + '/' + str(EPISODES) + ', score: ' + str(tt) + ', e: ' + str(agent.epsilon))
+                print('episode: ' + str(e) + '/' + str(args.epochs) + ', score: ' + str(tt) + ', e: ' + str(agent.epsilon))
                 break
 
             if len(agent.memory) > batch_size and not args.simulate:
 
                 loss = agent.replay(batch_size)
                 if tt % 10 == 0:
-                    print('episode: ' + str(e) + '/' + str(EPISODES) + ', time: ' + str(tt) + ', loss: ' + str(loss))
+                    print('episode: ' + str(e) + '/' + str(args.epochs) + ', time: ' + str(tt) + ', loss: ' + str(loss))
 
         if not args.simulate:
             agent.save_model(dir_name=args.dir)
