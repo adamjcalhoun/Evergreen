@@ -168,16 +168,35 @@ def create_simple_environment(reward=''):
 
 def create_two_patch_environment(reward=''):
     env = WormWorldEnv(enable_render=args.show,world_size=(128,128),world_view_size=(1024,1024),reward_plan=reward)
-    pid = env.add_odor_source(source_pos=(14,14),death_rate=0.01,diffusion_scale=2,emit_rate=0)
+    pid = env.add_odor_source(source_pos=(14,14),death_rate=0.1,diffusion_scale=2,emit_rate=0)
 
     # pid = env.add_odor_source(source_pos=(20,18),death_rate=0.01,diffusion_scale=1,emit_rate=1,plume_id=pid)
     # pid = env.add_circular_odor_source(source_pos=(20,18),plume_id=pid,radius=4,emit_rate=0.1)
 
-    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,15),source_bottomright=(25,30),emit_rate=0.1)
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,15),source_bottomright=(25,30),emit_rate=1)
     env.add_vis_layer(layer_type='odor',pid=pid)
     env.set_odor_source_type(source_type='food',pid=pid)
 
-    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(60,60),source_bottomright=(75,75),emit_rate=5)
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(60,60),source_bottomright=(75,75),emit_rate=3)
+    # env.add_vis_layer(layer_type='odor',pid=pid)  # having two of these makes the visualization look way better...
+    env.set_odor_source_type(source_type='food',pid=pid)
+
+    # tid = env.add_temp_gradient(source_pos=(14,14),fix_x=14,fix_y=None,tau=1,peak=22,trough=18)
+    # env.set_agent_temp(mean_temp=18)
+    return env
+
+def create_two_patch_diffuse_environment(reward=''):
+    env = WormWorldEnv(enable_render=args.show,world_size=(128,128),world_view_size=(1024,1024),reward_plan=reward)
+    pid = env.add_odor_source(source_pos=(14,14),death_rate=0.1,diffusion_scale=10,emit_rate=0)
+
+    # pid = env.add_odor_source(source_pos=(20,18),death_rate=0.01,diffusion_scale=1,emit_rate=1,plume_id=pid)
+    # pid = env.add_circular_odor_source(source_pos=(20,18),plume_id=pid,radius=4,emit_rate=0.1)
+
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,15),source_bottomright=(25,30),emit_rate=1)
+    env.add_vis_layer(layer_type='odor',pid=pid)
+    env.set_odor_source_type(source_type='food',pid=pid)
+
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(60,60),source_bottomright=(75,75),emit_rate=3)
     # env.add_vis_layer(layer_type='odor',pid=pid)  # having two of these makes the visualization look way better...
     env.set_odor_source_type(source_type='food',pid=pid)
 
@@ -204,6 +223,8 @@ def create_large_environment(reward=''):
     # env.set_agent_temp(mean_temp=18)
     return env
 
+# sbatch submitGeneric.sbatch -d twopatch_rfh_5/ -rf -ih -t 10000 -e 1000 -w two_patch
+# sbatch submitGeneric.sbatch -d twopatch_diffuse_rfh_5/ -rf -ih -t 10000 -e 1000 -w two_patch_diffuse
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='worm_agent')
     parser.add_argument('-s', '--show', action='store_true', help='Show pygame visualization')
@@ -216,6 +237,7 @@ if __name__ == "__main__":
     parser.add_argument('-re', '--reward_eggs', action='store_true', help='Reward for egg laying')
     parser.add_argument('-ih', '--reward_hunger', action='store_true', help='Have an internal hunger variable (add to state)')
 
+    parser.add_argument('-w', '--world', type=str, help='Pre-defined world to run', default='')
     parser.add_argument('-a', '--num_agents', type=int, help='Number of agents to simulate', default=1)
 
     parser.add_argument('-t', '--num_timesteps', type=int, help='Number of time steps per epoch', default=1000)
@@ -237,11 +259,15 @@ if __name__ == "__main__":
 
     num_agents = args.num_agents
     num_timesteps = args.num_timesteps
-    # env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
-    # env = create_simple_environment(reward=reward_string)
-    env = create_two_patch_environment(reward=reward_string)
-    # might need to make the patches closer in space
-    # env = create_large_environment(reward=reward_string)
+    if args.world == '':
+        # env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
+        # env = create_simple_environment(reward=reward_string)
+        env = create_two_patch_environment(reward=reward_string)
+        # might need to make the patches closer in space
+        # env = create_large_environment(reward=reward_string)
+    else:
+        env = locals()['create_' + args.world + '_environment'](reward=reward_string)
+
     pid = env.set_num_agents(num_agents=num_agents)
     env.add_vis_layer(layer_type='odor',pid=pid)
 
