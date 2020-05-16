@@ -40,6 +40,9 @@
 # other internal needs: protein, sugars, salts, etc
 # day/night or other environmental oscillations
 
+# https://en.wikipedia.org/wiki/Marginal_value_theorem
+
+
 
 ########
 # Order of things to add:
@@ -55,7 +58,30 @@
 # - [ ] Ability to control odors from agents (train [ ])
 # - [ ] Ability to predate on other agents (train [ ])
 # - [ ] Add cost for movement
+# - [ ] Add continuous action space
+# - [ ] Add heterogeneous (multi-species) agent world
 ########
+
+########
+# What are figures/panels?
+# 
+# 1. An introduction to Evergreen
+# 2. Behavioral: Show chemotaxis
+# 3. Behavioral: Show foraging
+# 4. Behavioral: Effects of other animals
+# 5. Behavioral: Effects of internal hunger
+# 6. Behavioral: Effects of needing multiple nutrients
+# 7. Behavioral: Effects of predators
+# 8. Internal: Representations with sensory bottleneck
+# 9. Internal: Change in representations with social pressure
+# 10. Internal: effects of feedback
+
+########
+# Want environments with many different resources
+
+# how did that Zebrafish/worm paper train their models?
+
+
 
 # multi-agent
 # each agent releases odor plumes
@@ -89,6 +115,13 @@
 # use keras-rl? 
 # https://hub.packtpub.com/build-reinforcement-learning-agent-in-keras-tutorial/
 # https://github.com/keras-rl/keras-rl/tree/master/examples
+# https://lilianweng.github.io/lil-log/2018/05/05/implementing-deep-reinforcement-learning-models.html
+
+# LSTMs:
+# https://www.memoria.ai/projects/revisiting-cartpole-experiments-with-lstms-part-1
+# https://gist.github.com/giuseppebonaccorso/7040b10a13520c4b0340b8a89dc8262f
+# https://github.com/keras-rl/keras-rl/issues/41
+# https://github.com/keras-rl/keras-rl/issues/222
 
 
 # installing environment
