@@ -15,6 +15,8 @@ import argparse
 import h5py
 import pickle
 
+import msvcrt
+
 # For training the agent:
 # https://www.digitalocean.com/community/tutorials/how-to-build-atari-bot-with-openai-gym
 
@@ -94,11 +96,15 @@ class WormAgent:
         # with h5py.File(dir_name + 'memory_' + datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.h5','w') as f:
         #     f.create_dataset('memory',data=np.array(self.memory))
 
-    def load_model(self,dir_name=None):
+    def load_model(self,dir_name=None,model_name=None):
         if dir_name is None:
             dir_name = ''
 
-        self.model = load_model(dir_name + datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.h5')
+        if model_name == None:
+            self.model = load_model(dir_name + datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.h5')
+        else:
+            # self.model = load_model('/Users/adamjc/Dropbox/GitHub/Evergreen/' + model_name)
+            self.model = load_model(dir_name + model_name)
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
@@ -204,6 +210,36 @@ def create_two_patch_diffuse_environment(reward=''):
     # env.set_agent_temp(mean_temp=18)
     return env
 
+def create_two_patch_dense_environment(reward='',radius=8,emit_rate1=1,emit_rate2=1):
+    env = WormWorldEnv(enable_render=args.show,world_size=(128,128),world_view_size=(1024,1024),reward_plan=reward)
+    pid = env.add_odor_source(source_pos=(14,14),death_rate=0.1,diffusion_scale=10,emit_rate=0)
+
+    pid = env.add_square_odor_source(plume_id=pid,source_pos=(32,64),radius=radius,emit_rate=emit_rate1)
+    env.add_vis_layer(layer_type='odor',pid=pid)
+    env.set_odor_source_type(source_type='food',pid=pid)
+
+    pid = env.add_square_odor_source(plume_id=pid,source_pos=(96,64),radius=radius,emit_rate=emit_rate2)
+    env.set_odor_source_type(source_type='food',pid=pid)
+
+    return env
+
+def create_two_patch_patchy_environment(reward='',radius=8,emit_rate1=1,emit_rate2=1,coarseness=.1):
+    env = WormWorldEnv(enable_render=args.show,world_size=(128,128),world_view_size=(1024,1024),reward_plan=reward)
+    pid = env.add_odor_source(source_pos=(14,14),death_rate=0.1,diffusion_scale=10,emit_rate=0)
+
+    # create patchy environment by placing elements in a loop?
+    # or by creating a grid and "coarsening" it?
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,15),source_bottomright=(25,30),emit_rate=emit_rate1)
+    env.add_vis_layer(layer_type='odor',pid=pid)
+    env.set_odor_source_type(source_type='food',pid=pid)
+
+    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(60,60),source_bottomright=(75,75),emit_rate=emit_rate2)
+    env.set_odor_source_type(source_type='food',pid=pid)
+
+    print('here')
+
+    return env
+
 def create_large_environment(reward=''):
     # 512x512? or larger?
     env = WormWorldEnv(enable_render=args.show,world_size=(512,512),world_view_size=(1024,1024),reward_plan=reward)
@@ -228,7 +264,9 @@ def create_large_environment(reward=''):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='worm_agent')
     parser.add_argument('-s', '--show', action='store_true', help='Show pygame visualization')
-    parser.add_argument('-d', '--dir', type=str, help='Choose where to save data to')
+    parser.add_argument('--load_model', type=str, help='Load a pre-trained model to use as the agent', default='')
+    parser.add_argument('-d', '--dir', type=str, help='Choose where to save data to', default='')
+
     parser.add_argument('--simulate', help='Simulate only', action='store_true')
 
     parser.add_argument('-ro', '--reward_odor', action='store_true', help='Reward on odor')
@@ -269,7 +307,8 @@ if __name__ == "__main__":
         env = locals()['create_' + args.world + '_environment'](reward=reward_string)
 
     pid = env.set_num_agents(num_agents=num_agents)
-    env.add_vis_layer(layer_type='odor',pid=pid)
+    # self-odor: ADD THIS AS A FLAG
+    # env.add_vis_layer(layer_type='odor',pid=pid)
 
 
     # (self,temp_id=None,source_pos=(0,0),fix_x=None,fix_y=None,tau=1,peak=25,trough=18)
@@ -282,6 +321,8 @@ if __name__ == "__main__":
     # action_size = len(env.action_space)
     action_size = 4
     agent = WormAgent(state_size, action_size)
+    if args.load_model != '':
+        agent.load_model(model_name=args.load_model)
 
     done = False
     batch_size = 32
@@ -291,12 +332,17 @@ if __name__ == "__main__":
     # else:
     #     EPISODES = 20
 
-
+    abort_program = False
     # http://pymedia.org/tut/src/make_video.py.html
     for e in range(args.epochs):
         state = env.reset()
         # state = np.reshape(state, [1, state_size])
         for tt in range(num_timesteps):
+            if msvcrt.kbhit():
+                print('detected enter, exiting!')
+                abort_program = True
+                break
+
             # env.render()
             t = time()
             for aa in range(num_agents):
@@ -311,6 +357,7 @@ if __name__ == "__main__":
                 break
 
             if len(agent.memory) > batch_size and not args.simulate:
+                # replay is slow...
 
                 loss = agent.replay(batch_size)
                 if tt % 10 == 0:
@@ -320,6 +367,9 @@ if __name__ == "__main__":
             agent.save_model(dir_name=args.dir)
         else:
             agent.save_memory(dir_name=args.dir)
+
+        if abort_program:
+            break
 
 
 

@@ -17,7 +17,7 @@ class WormWorldEnv(gym.Env):
     # additional action: stay, lay eggs?
 
     def __init__(self, world_file=None, world_size=(512,512), world_view_size=None, enable_render=False, reward_plan='', 
-        hunger=False, lay_eggs=False):
+        hunger=False, lay_eggs=False, odor_memory=10, temp_memory=10):
 
         self.viewer = None
         self.enable_render = enable_render
@@ -27,11 +27,13 @@ class WormWorldEnv(gym.Env):
         self.hunger = [0]
         self.hunger_step = 0.01 # these need to be passable parameters
         self.max_hunger = 1
-        self.odor_history_length = 10
+        self.odor_history_length = odor_memory
         self.odor_history = [[np.zeros(self.odor_history_length)]]
 
-        self.temp_history_length = 10
+        self.temp_history_length = temp_memory
         self.temp_history = [np.zeros(self.temp_history_length)]
+
+        self.hunger_history = [np.zeros(self.odor_history_length)]
 
         self.has_hunger = True
 
@@ -212,7 +214,9 @@ class WormWorldEnv(gym.Env):
             for ii in range(num_agents - self.__num_agents):
                 self.__world.add_agent()
                 self.temp_history.append(np.zeros(self.temp_history_length))
-                self.odor_history.append([np.zeros(self.odor_history_length)])
+
+                # self-hunger!! add in this as a flag
+                # self.odor_history.append([np.zeros(self.odor_history_length)])
                 self.hunger.append(0)
         # else:
         #     self.__world.agents
