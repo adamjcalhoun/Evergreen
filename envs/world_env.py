@@ -1,5 +1,6 @@
 import numpy as np
 import copy
+import random
 
 import gym
 from gym import error, spaces, utils
@@ -168,8 +169,8 @@ class WormWorldEnv(gym.Env):
     def add_odor_source(self,source_pos=(0,0),death_rate=0,diffusion_scale=0,emit_rate=0,plume_id=None):
         return self.__world.add_odor_source(source_pos=source_pos,death_rate=death_rate,diffusion_scale=diffusion_scale,emit_rate=emit_rate,plume_id=plume_id)
 
-    def add_circular_odor_source(self,source_pos=(0,0),plume_id=0,radius=0,emit_rate=0):
-        return self.__world.add_circular_odor_source(source_pos=source_pos,plume_id=plume_id,radius=radius,emit_rate=emit_rate)
+    def add_circular_odor_source(self,source_pos=(0,0),plume_id=0,radius=0,emit_rate=0,coarseness=1):
+        return self.__world.add_circular_odor_source(source_pos=source_pos,plume_id=plume_id,radius=radius,emit_rate=emit_rate,coarseness=coarseness)
 
     def add_square_odor_source(self,plume_id=0,source_topleft=None,source_bottomright=None,emit_rate=0):
         return self.__world.add_square_odor_source(plume_id=plume_id,source_topleft=source_topleft,source_bottomright=source_bottomright,emit_rate=emit_rate)
@@ -301,9 +302,9 @@ class World:
 
         return plume_id
 
-    def add_circular_odor_source(self,source_pos=(0,0),plume_id=0,radius=0,emit_rate=0):
+    def add_circular_odor_source(self,source_pos=(0,0),plume_id=0,radius=0,emit_rate=0,coarseness=1):
         plume = self.odor_sources[plume_id]
-        return plume.add_circular_source(source_pos=source_pos,radius=radius,emit_rate=emit_rate)
+        return plume.add_circular_source(source_pos=source_pos,radius=radius,emit_rate=emit_rate,coarseness=coarseness)
 
     def add_square_odor_source(self,plume_id=0,source_topleft=None,source_bottomright=None,emit_rate=0):
         plume = self.odor_sources[plume_id]
@@ -518,7 +519,8 @@ class OdorPlume:
         self.num_sources += 1
 
 
-    def add_circular_source(self,source_pos=None,radius=None,emit_rate=None):
+    def add_circular_source(self,source_pos=None,radius=None,emit_rate=None, coarseness=1):
+        # remove 
         print('circular source!')
         x = np.arange(0,self.world_size[0])
         y = np.arange(0,self.world_size[1])
@@ -526,12 +528,16 @@ class OdorPlume:
         circle = np.sqrt((xx - source_pos[0])**2 + (yy - source_pos[1])**2) < radius
 
         inds = np.where(circle)
+        coarse_list = np.random.permutation(np.arange(inds[0].shape[0]))
+        coarse_list = coarse_list[:int(len(coarse_list)*coarseness)]
+        inds = (inds[0][coarse_list],inds[1][coarse_list])
 
         for (vv,ww) in zip(inds[0],inds[1]):
             self.source_pos.append((int(vv),int(ww)))
             self.emit_rate.append(emit_rate)
+            self.num_sources += 1
 
-        self.num_sources += np.sum(circle)
+        return self.plume_id
 
     def add_square_source(self,source_topleft=None,source_bottomright=None,emit_rate=None):
         print('square source!')

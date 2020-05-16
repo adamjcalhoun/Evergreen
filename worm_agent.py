@@ -172,24 +172,24 @@ def create_simple_environment(reward=''):
     # env.set_agent_temp(mean_temp=18)
     return env
 
-def create_two_patch_environment(reward=''):
-    env = WormWorldEnv(enable_render=args.show,world_size=(128,128),world_view_size=(1024,1024),reward_plan=reward)
-    pid = env.add_odor_source(source_pos=(14,14),death_rate=0.1,diffusion_scale=2,emit_rate=0)
+# def create_two_patch_environment(reward=''):
+#     env = WormWorldEnv(enable_render=args.show,world_size=(128,128),world_view_size=(1024,1024),reward_plan=reward)
+#     pid = env.add_odor_source(source_pos=(14,14),death_rate=0.1,diffusion_scale=2,emit_rate=0)
 
-    # pid = env.add_odor_source(source_pos=(20,18),death_rate=0.01,diffusion_scale=1,emit_rate=1,plume_id=pid)
-    # pid = env.add_circular_odor_source(source_pos=(20,18),plume_id=pid,radius=4,emit_rate=0.1)
+#     # pid = env.add_odor_source(source_pos=(20,18),death_rate=0.01,diffusion_scale=1,emit_rate=1,plume_id=pid)
+#     # pid = env.add_circular_odor_source(source_pos=(20,18),plume_id=pid,radius=4,emit_rate=0.1)
 
-    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,15),source_bottomright=(25,30),emit_rate=1)
-    env.add_vis_layer(layer_type='odor',pid=pid)
-    env.set_odor_source_type(source_type='food',pid=pid)
+#     pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,15),source_bottomright=(25,30),emit_rate=1)
+#     env.add_vis_layer(layer_type='odor',pid=pid)
+#     env.set_odor_source_type(source_type='food',pid=pid)
 
-    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(60,60),source_bottomright=(75,75),emit_rate=3)
-    # env.add_vis_layer(layer_type='odor',pid=pid)  # having two of these makes the visualization look way better...
-    env.set_odor_source_type(source_type='food',pid=pid)
+#     pid = env.add_square_odor_source(plume_id=pid,source_topleft=(60,60),source_bottomright=(75,75),emit_rate=3)
+#     # env.add_vis_layer(layer_type='odor',pid=pid)  # having two of these makes the visualization look way better...
+#     env.set_odor_source_type(source_type='food',pid=pid)
 
-    # tid = env.add_temp_gradient(source_pos=(14,14),fix_x=14,fix_y=None,tau=1,peak=22,trough=18)
-    # env.set_agent_temp(mean_temp=18)
-    return env
+#     # tid = env.add_temp_gradient(source_pos=(14,14),fix_x=14,fix_y=None,tau=1,peak=22,trough=18)
+#     # env.set_agent_temp(mean_temp=18)
+#     return env
 
 def create_two_patch_diffuse_environment(reward=''):
     env = WormWorldEnv(enable_render=args.show,world_size=(128,128),world_view_size=(1024,1024),reward_plan=reward)
@@ -223,20 +223,18 @@ def create_two_patch_dense_environment(reward='',radius=8,emit_rate1=1,emit_rate
 
     return env
 
-def create_two_patch_patchy_environment(reward='',radius=8,emit_rate1=1,emit_rate2=1,coarseness=.1):
+def create_two_patch_environment(reward='',radius=8,emit_rate1=1,emit_rate2=1,coarseness=.1):
     env = WormWorldEnv(enable_render=args.show,world_size=(128,128),world_view_size=(1024,1024),reward_plan=reward)
     pid = env.add_odor_source(source_pos=(14,14),death_rate=0.1,diffusion_scale=10,emit_rate=0)
 
     # create patchy environment by placing elements in a loop?
     # or by creating a grid and "coarsening" it?
-    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(10,15),source_bottomright=(25,30),emit_rate=emit_rate1)
+    pid = env.add_circular_odor_source(plume_id=pid,source_pos=(32,32),radius=15,emit_rate=emit_rate1,coarseness=coarseness)
     env.add_vis_layer(layer_type='odor',pid=pid)
     env.set_odor_source_type(source_type='food',pid=pid)
 
-    pid = env.add_square_odor_source(plume_id=pid,source_topleft=(60,60),source_bottomright=(75,75),emit_rate=emit_rate2)
+    pid = env.add_circular_odor_source(plume_id=pid,source_pos=(96,96),radius=15,emit_rate=emit_rate2,coarseness=coarseness)
     env.set_odor_source_type(source_type='food',pid=pid)
-
-    print('here')
 
     return env
 
@@ -300,7 +298,7 @@ if __name__ == "__main__":
     if args.world == '':
         # env = WormWorldEnv(enable_render=True,world_size=(32,32),world_view_size=(512,512))
         # env = create_simple_environment(reward=reward_string)
-        env = create_two_patch_environment(reward=reward_string)
+        env = create_two_patch_environment(reward=reward_string,coarseness=0.1)
         # might need to make the patches closer in space
         # env = create_large_environment(reward=reward_string)
     else:
