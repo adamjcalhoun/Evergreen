@@ -127,9 +127,3 @@
 # installing environment
 # note that tensorflow2 is ~10x slower than tensorflow1. I think there is a parameter that can speed tf2 up
 # but I have not yet tested that (add a line in the code that says '@tf.function')
-conda create -n evergreen python=3
-conda activate evergreen
-conda install numpy tensorflow-gpu=1.15 git h5py
-pip install gym
-pip install pygame
-git clone https://github.com/adamjcalhoun/Evergreen.git
